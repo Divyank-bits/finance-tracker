@@ -277,6 +277,7 @@ body.is-desktop .toast { bottom:24px; }
 .chart-filter-row { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
 .chart-filter-btn { padding: 5px 14px; border-radius: 100px; font-size: 12px; font-weight: 600; border: 1.5px solid var(--border); color: var(--muted); background: var(--surface); transition: all 0.15s; }
 .chart-filter-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }
+.chart-month-select { width: 100%; padding: 9px 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--surface2); font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 14px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 </style>
 </head>
 <body>
@@ -581,6 +582,7 @@ if (typeof google === 'undefined') {
     importXLS:       () => ({success:true, preview:[]}),
     importHTML:      () => ({success:true, preview:[]}),
     confirmImport:   () => ({imported: window._previewData ? window._previewData.length : 0}),
+    getCategoryDataForMonth: (month) => ({ categoryMap: STUB_DASH.categoryMap, accountMap: STUB_DASH.accountMap }),
   };
   function makeChain(ok, err) {
     const c = {
@@ -754,11 +756,20 @@ function loadCharts() {
 
 function renderCharts(d) {
   const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399','#fb7185','#38bdf8'];
+  const months = Object.keys(d.monthMap || {}).sort().reverse();
+  const monthOptions = months.map(m => {
+    const [y, mo] = m.split('-');
+    const label = new Date(y, mo-1).toLocaleDateString('en-IN', {month:'long', year:'numeric'});
+    return `<option value="${m}">${label}</option>`;
+  }).join('');
 
   document.getElementById('charts-content').innerHTML = `
     <div class="chart-section">
       <div class="chart-section-title">Spending by Category</div>
       <div class="chart-wrap">
+        <select class="chart-month-select" id="cat-month-select" onchange="setCategoryMonth(this.value)">
+          ${monthOptions}
+        </select>
         <canvas id="chart-donut" height="260"></canvas>
       </div>
     </div>
@@ -784,26 +795,8 @@ function renderCharts(d) {
   window._chartsData = d;
 
   setTimeout(() => {
-    // Donut — category breakdown
-    const catEntries = Object.entries(d.categoryMap || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-    const donutEl = document.getElementById('chart-donut');
-    if (donutEl && catEntries.length) {
-      if (chartDonut) chartDonut.destroy();
-      chartDonut = new Chart(donutEl.getContext('2d'), {
-        type: 'doughnut',
-        data: {
-          labels: catEntries.map(([c])=>c),
-          datasets: [{ data: catEntries.map(([,v])=>v), backgroundColor: COLORS, borderWidth: 0, hoverOffset: 10 }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: true, cutout: '60%',
-          plugins: {
-            legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 }, padding: 14, boxWidth: 10 } },
-            tooltip: { callbacks: { label: ctx => ` ₹${ctx.raw.toLocaleString('en-IN')} (${Math.round(ctx.raw / catEntries.reduce((s,[,v])=>s+v,0)*100)}%)` } }
-          }
-        }
-      });
-    }
+    // Donut — category breakdown for selected month
+    _buildDonutChart(d.categoryMap);
 
     // Trend bar chart
     _buildTrendChart(d, chartTrendMonths, COLORS);
@@ -830,6 +823,48 @@ function renderCharts(d) {
       });
     }
   }, 150);
+}
+
+function _buildDonutChart(categoryMap) {
+  const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399','#fb7185','#38bdf8'];
+  const catEntries = Object.entries(categoryMap || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const donutEl = document.getElementById('chart-donut');
+  if (!donutEl) return;
+  if (chartDonut) chartDonut.destroy();
+  if (!catEntries.length) {
+    donutEl.style.display = 'none';
+    const wrap = donutEl.parentElement;
+    if (!wrap.querySelector('.empty-state')) wrap.insertAdjacentHTML('beforeend','<div class="empty-state" style="padding:30px 0"><div class="empty-text">No expenses for this month</div></div>');
+    return;
+  }
+  donutEl.style.display = 'block';
+  donutEl.parentElement.querySelector('.empty-state')?.remove();
+  const total = catEntries.reduce((s,[,v])=>s+v, 0);
+  chartDonut = new Chart(donutEl.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: catEntries.map(([c])=>c),
+      datasets: [{ data: catEntries.map(([,v])=>v), backgroundColor: COLORS, borderWidth: 0, hoverOffset: 10 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '60%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 }, padding: 14, boxWidth: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ₹${ctx.raw.toLocaleString('en-IN')} (${Math.round(ctx.raw/total*100)}%)` } }
+      }
+    }
+  });
+}
+
+function setCategoryMonth(month) {
+  const donutEl = document.getElementById('chart-donut');
+  if (donutEl) { donutEl.style.opacity = '0.4'; }
+  google.script.run
+    .withSuccessHandler(res => {
+      if (donutEl) donutEl.style.opacity = '1';
+      _buildDonutChart(res.categoryMap);
+    })
+    .getCategoryDataForMonth(month);
 }
 
 function _buildTrendChart(d, months, COLORS) {
