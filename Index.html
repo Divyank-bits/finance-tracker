@@ -1340,8 +1340,8 @@ function confirmImport() {
 function _autoCategory(text) {
   const t = text.toLowerCase();
   const map = {
-    'swiggy':'Dining Out','zomato':'Dining Out','haldiram':'Dining Out',
-    'restaurant':'Dining Out','dhaba':'Dining Out','cafe':'Cafe & Snacks',
+    'swiggy':'Food Orders','zomato':'Food Orders',
+    'haldiram':'Eat Out','restaurant':'Eat Out','dhaba':'Eat Out','cafe':'Cafe & Snacks',
     'blinkit':'Groceries','bigbasket':'Groceries','zepto':'Groceries',
     'dmart':'Groceries','grocery':'Groceries',
     'uber':'Transport (Uber/Auto)','ola':'Transport (Uber/Auto)','rapido':'Transport (Uber/Auto)',
@@ -1355,7 +1355,7 @@ function _autoCategory(text) {
     'electricity':'Bills & Utilities','petrol':'Fuel','fuel':'Fuel',
     'bpcl':'Fuel','iocl':'Fuel','hp petrol':'Fuel',
     'medical':'Medical & Health','pharmacy':'Pharmacy','hospital':'Medical & Health',
-    'gym':'Fitness & Gym','zerodha':'Investment Returns','claude':'Education & Courses',
+    'gym':'Fitness & Gym','nach/mut':'Mutual Fund','mut/':'Mutual Fund','zerodha':'Stocks & Zerodha','claude':'Education & Courses',
     'openai':'Education & Courses','chatgpt':'Education & Courses',
     'cashback':'Cashback & Rewards','refund':'Cashback & Rewards',
     'payment':'Transfer','billpay':'Transfer','cc payment':'Transfer',
@@ -1371,19 +1371,19 @@ function _autoCategory(text) {
 function _parseUnionBankPDF(text) {
   const results = [];
   const normalized = text.replace(/[ \t]+/g, ' ').replace(/\r/g, '');
-  const datePattern = /\b(\d{2}\/\d{2}\/\d{4})\b/g;
+  const datePattern = /\b(\d{2}[-\/]\d{2}[-\/]\d{4})\b/g;
   const dateMatches = [...normalized.matchAll(datePattern)];
   const txIdPattern = /^[A-Z]\d{6,}/;
 
   dateMatches.forEach((match, idx) => {
-    const date = match[1];
+    const date = match[1].replace(/-/g, '/');
     const start = match.index + match[0].length;
     const end = idx + 1 < dateMatches.length ? dateMatches[idx+1].index : normalized.length;
     const block = normalized.substring(start, end).trim();
     if (!txIdPattern.test(block)) return;
 
     const txId = block.split(' ')[0];
-    const amtPattern = /([\d,]+\.\d{2})\s*\((Dr|Cr)\)/gi;
+    const amtPattern = /([\d,]+\.\d+)\s*\((Dr|Cr)\)/gi;
     const amtMatches = [...block.matchAll(amtPattern)];
     if (!amtMatches.length) return;
 
@@ -1410,11 +1410,12 @@ function _parseUnionBankPDF(text) {
       friendly = p[p.length-1].trim() || description;
     }
 
+    const cat = _autoCategory(friendly + ' ' + description);
+    const INVEST_CATS = ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment'];
+    const type = drCr === 'CR' ? 'Income' : INVEST_CATS.includes(cat) ? 'Investment' : 'Expense';
     results.push({
       date, description: friendly, amount: txAmt,
-      type: drCr === 'CR' ? 'Income' : 'Expense',
-      account: 'Union Bank',
-      category: _autoCategory(friendly + ' ' + description),
+      type, account: 'Union Bank', category: cat,
       notes: 'Ref: ' + txId
     });
   });
