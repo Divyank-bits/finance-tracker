@@ -424,6 +424,31 @@ function getDashboardData() {
   };
 }
 
+function getCategoryDataForYear(year) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  const lastRow = sh.getLastRow();
+  const categoryMap = {}, accountMap = {};
+  if (lastRow >= 2) {
+    const data = sh.getRange(2, 1, lastRow - 1, 13).getValues();
+    data.forEach(r => {
+      const type = r[2], amount = parseFloat(r[4]) || 0;
+      const cat = r[3], acc = r[5];
+      let txYear = '';
+      try {
+        const parsedDate = _parseDate(r[1]);
+        if (parsedDate && parsedDate.getFullYear() > 1971)
+          txYear = String(parsedDate.getFullYear());
+      } catch(e) {}
+      if (txYear === String(year) && type === 'Expense') {
+        categoryMap[cat] = (categoryMap[cat] || 0) + amount;
+        accountMap[acc]  = (accountMap[acc]  || 0) + amount;
+      }
+    });
+  }
+  return { categoryMap, accountMap };
+}
+
 function getCategoryDataForMonth(month) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);

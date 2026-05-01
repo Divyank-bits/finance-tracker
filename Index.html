@@ -594,6 +594,7 @@ if (typeof google === 'undefined') {
     importHTML:      () => ({success:true, preview:[]}),
     confirmImport:   () => ({imported: window._previewData ? window._previewData.length : 0}),
     getCategoryDataForMonth: (month) => ({ categoryMap: STUB_DASH.categoryMap, accountMap: STUB_DASH.accountMap }),
+    getCategoryDataForYear: (year) => ({ categoryMap: STUB_DASH.categoryMap, accountMap: STUB_DASH.accountMap }),
     getInvestmentTrend: () => ({
       categories: ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','PPF & NPS','Other Investment'],
       monthMap: {'2025-11':{'Mutual Fund':5000,'Stocks & Zerodha':3000},'2025-12':{'Mutual Fund':5000,'Fixed Deposit':10000},'2026-01':{'Mutual Fund':5000,'Stocks & Zerodha':5000,'PPF & NPS':2000},'2026-02':{'Mutual Fund':5000,'Stocks & Zerodha':2000},'2026-03':{'Mutual Fund':5000,'Fixed Deposit':5000,'Stocks & Zerodha':3000},'2026-04':{'Mutual Fund':5000,'Stocks & Zerodha':10000}}
@@ -772,9 +773,10 @@ function renderCharts(d, inv) {
     <div class="chart-section">
       <div class="chart-section-title">Spending by Category</div>
       <div class="chart-wrap">
-        <select class="chart-month-select" id="cat-month-select" onchange="setCategoryMonth(this.value)">
-          ${monthOptions}
-        </select>
+        <div class="chart-filter-row">
+          <select class="chart-month-select" id="cat-month-select" onchange="setCategoryMonth(this.value)">${monthOptions}</select>
+          <select class="chart-month-select" id="cat-year-select" onchange="setCategoryYear(this.value)"><option value="">By Month</option>${yearOptions}</select>
+        </div>
         <canvas id="chart-donut" height="260"></canvas>
       </div>
     </div>
@@ -905,14 +907,30 @@ function _buildDonutChart(categoryMap) {
 }
 
 function setCategoryMonth(month) {
+  const yearSel = document.getElementById('cat-year-select');
+  if (yearSel) yearSel.value = '';
   const donutEl = document.getElementById('chart-donut');
-  if (donutEl) { donutEl.style.opacity = '0.4'; }
+  if (donutEl) donutEl.style.opacity = '0.4';
   google.script.run
     .withSuccessHandler(res => {
       if (donutEl) donutEl.style.opacity = '1';
       _buildDonutChart(res.categoryMap);
     })
     .getCategoryDataForMonth(month);
+}
+
+function setCategoryYear(year) {
+  if (!year) return;
+  const monthSel = document.getElementById('cat-month-select');
+  if (monthSel) monthSel.value = '';
+  const donutEl = document.getElementById('chart-donut');
+  if (donutEl) donutEl.style.opacity = '0.4';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (donutEl) donutEl.style.opacity = '1';
+      _buildDonutChart(res.categoryMap);
+    })
+    .getCategoryDataForYear(year);
 }
 
 function _buildTrendChart(d, months, COLORS, year) {
