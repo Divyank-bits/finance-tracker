@@ -11,12 +11,11 @@ A personal finance tracker built on **Google Apps Script (GAS)** with Google She
 
 ## Deployment
 
-There is no local build or test runner. Development flow:
+Pushing to `main` automatically deploys via GitHub Actions ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)) — it installs clasp, authenticates using the `CLASPRC_JSON` GitHub secret, and runs `clasp push --force`.
 
-1. Copy `code.js` content into the Apps Script editor (script.google.com), or use `clasp push` if clasp is configured.
-2. Copy `index.html` content into the Apps Script editor as an HTML file.
-3. Deploy as a Web App via Apps Script → Deploy → New deployment.
-4. Run `setupSpreadsheet()` once in the Apps Script editor to initialize the 8 required sheets.
+To deploy manually: `clasp push --force` (requires clasp installed and `~/.clasprc.json` credentials).
+
+Run `setupSpreadsheet()` once in the Apps Script editor to initialize the 8 required sheets (only needed on first setup).
 
 ## Architecture
 
