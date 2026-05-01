@@ -461,6 +461,17 @@ body.is-desktop .toast { bottom:24px; }
       </div>
     </div>
 
+    <div class="section-label">Import Transactions</div>
+    <div class="card" style="margin-bottom:12px;">
+      <button class="settings-row" onclick="showPage('import')" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div class="settings-row-label">Import Bank Statement</div>
+          <div class="settings-row-sub">CSV · XLS · PDF · HTML — 8 banks supported</div>
+        </div>
+        <svg width="16" height="16" fill="none" stroke="var(--muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </div>
+
     <div class="section-label">App</div>
     <div class="card" style="margin-bottom:32px;">
       <div class="settings-row">
@@ -583,6 +594,10 @@ if (typeof google === 'undefined') {
     importHTML:      () => ({success:true, preview:[]}),
     confirmImport:   () => ({imported: window._previewData ? window._previewData.length : 0}),
     getCategoryDataForMonth: (month) => ({ categoryMap: STUB_DASH.categoryMap, accountMap: STUB_DASH.accountMap }),
+    getInvestmentTrend: () => ({
+      categories: ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','PPF & NPS','Other Investment'],
+      monthMap: {'2025-11':{'Mutual Fund':5000,'Stocks & Zerodha':3000},'2025-12':{'Mutual Fund':5000,'Fixed Deposit':10000},'2026-01':{'Mutual Fund':5000,'Stocks & Zerodha':5000,'PPF & NPS':2000},'2026-02':{'Mutual Fund':5000,'Stocks & Zerodha':2000},'2026-03':{'Mutual Fund':5000,'Fixed Deposit':5000,'Stocks & Zerodha':3000},'2026-04':{'Mutual Fund':5000,'Stocks & Zerodha':10000}}
+    }),
   };
   function makeChain(ok, err) {
     const c = {
@@ -614,7 +629,7 @@ let cashbackOn = false, currentSource = '', currentFilter = 'All';
 let previewData = [], allTxs = [];
 let config = { accounts:[], categories:[], budget:0, categoryTypeMap:{} };
 let pieChart = null, trendChart = null;
-let chartDonut = null, chartTrend = null, chartAccount = null;
+let chartDonut = null, chartTrend = null, chartAccount = null, chartInvestment = null;
 let chartTrendMonths = 6;
 
 const CATEGORY_ICONS = {
@@ -751,10 +766,13 @@ function renderDashboard(d) {
 function loadCharts() {
   document.getElementById('charts-content').innerHTML =
     '<div class="loader"><div class="spinner"></div>Loading charts…</div>';
-  google.script.run.withSuccessHandler(renderCharts).getDashboardData();
+  google.script.run.withSuccessHandler(dash => {
+    window._chartsData = dash;
+    google.script.run.withSuccessHandler(inv => renderCharts(dash, inv)).getInvestmentTrend();
+  }).getDashboardData();
 }
 
-function renderCharts(d) {
+function renderCharts(d, inv) {
   const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399','#fb7185','#38bdf8'];
   const months = Object.keys(d.monthMap || {}).sort().reverse();
   const monthOptions = months.map(m => {
@@ -785,6 +803,12 @@ function renderCharts(d) {
       </div>
     </div>
     <div class="chart-section">
+      <div class="chart-section-title">Monthly Investment Breakdown</div>
+      <div class="chart-wrap">
+        <canvas id="chart-investment" height="220"></canvas>
+      </div>
+    </div>
+    <div class="chart-section">
       <div class="chart-section-title">Account-wise Spending</div>
       <div class="chart-wrap">
         <canvas id="chart-account" height="220"></canvas>
@@ -800,6 +824,9 @@ function renderCharts(d) {
 
     // Trend bar chart
     _buildTrendChart(d, chartTrendMonths, COLORS);
+
+    // Investment stacked bar
+    if (inv) _buildInvestmentChart(inv);
 
     // Account-wise horizontal bar
     const accEntries = Object.entries(d.accountMap || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
@@ -823,6 +850,39 @@ function renderCharts(d) {
       });
     }
   }, 150);
+}
+
+function _buildInvestmentChart(inv) {
+  const INV_COLORS = { 'Mutual Fund':'#7c5cf6', 'Stocks & Zerodha':'#10b87a', 'Fixed Deposit':'#f5a623', 'Plot & Property':'#4f8ef7', 'PPF & NPS':'#ef4675', 'Other Investment':'#a78bfa' };
+  const months = Object.keys(inv.monthMap).sort().slice(-6);
+  const el = document.getElementById('chart-investment');
+  if (!el) return;
+  if (chartInvestment) chartInvestment.destroy();
+  const activeCats = inv.categories.filter(c => months.some(m => inv.monthMap[m]?.[c] > 0));
+  chartInvestment = new Chart(el.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: activeCats.map(cat => ({
+        label: cat,
+        data: months.map(m => inv.monthMap[m]?.[cat] || 0),
+        backgroundColor: INV_COLORS[cat] || '#888',
+        borderRadius: 4,
+        borderSkipped: false
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 }, padding: 12, boxWidth: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ₹${ctx.raw.toLocaleString('en-IN')}` } }
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: '#999', font: { size: 10 } }, grid: { display: false }, border: { display: false } },
+        y: { stacked: true, ticks: { color: '#999', font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } }
+      }
+    }
+  });
 }
 
 function _buildDonutChart(categoryMap) {

@@ -449,6 +449,31 @@ function getCategoryDataForMonth(month) {
   return { categoryMap, accountMap };
 }
 
+function getInvestmentTrend() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  const lastRow = sh.getLastRow();
+  const INV_CATS = ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment'];
+  // monthMap: { 'yyyy-MM': { 'Mutual Fund': 0, ... } }
+  const monthMap = {};
+  if (lastRow >= 2) {
+    const data = sh.getRange(2, 1, lastRow - 1, 13).getValues();
+    data.forEach(r => {
+      const type = r[2], amount = parseFloat(r[4]) || 0, cat = r[3];
+      if (type !== 'Investment') return;
+      let month = r[11];
+      try {
+        const d = _parseDate(r[1]);
+        if (d && d.getFullYear() > 1971)
+          month = Utilities.formatDate(d, 'Asia/Kolkata', 'yyyy-MM');
+      } catch(e) {}
+      if (!monthMap[month]) monthMap[month] = {};
+      monthMap[month][cat] = (monthMap[month][cat] || 0) + amount;
+    });
+  }
+  return { monthMap, categories: INV_CATS };
+}
+
 function _updateSummaries(ss, data, month) {
   const msh = ss.getSheetByName(SHEETS.MONTHLY);
   const mData = msh.getLastRow() > 1 ? msh.getRange(2, 1, msh.getLastRow() - 1, 8).getValues() : [];
