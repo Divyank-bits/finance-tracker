@@ -23,13 +23,13 @@ const ACCOUNTS = [
 ];
 
 const CATEGORIES = [
-  'Groceries', 'Dining Out', 'Cafe & Snacks', 'Fuel',
+  'Groceries', 'Food Orders', 'Eat Out', 'Cafe & Snacks', 'Fuel',
   'Transport (Uber/Auto)', 'Medical & Health', 'Pharmacy',
-  'Shopping (Clothing)', 'Electronics & Gadgets', 'Entertainment',
+  'Shopping (Clothing)', 'Shopping (General)', 'Electronics & Gadgets', 'Entertainment',
   'Gaming', 'Travel & Holidays', 'Rent & Maintenance',
-  'Bills & Utilities', 'Internet & Phone', 'Education & Courses',
+  'Bills & Utilities', 'Internet & Phone', 'Subscriptions', 'Education & Courses',
   'EMI & Loan', 'Fitness & Gym', 'Gifts & Donations',
-  'Business & Work', 'Home Repair', 'Pet Care', 'Miscellaneous',
+  'Vehicle Maintenance & Repairs', 'Business & Work', 'Home Repair', 'Miscellaneous',
   'Salary', 'Freelance', 'Investment Returns', 'Refunds', 'Other Income',
   'Cashback & Rewards',
   'Mutual Fund', 'Stocks & Zerodha', 'Fixed Deposit',
@@ -226,8 +226,8 @@ function _setupKeywordMap(ss) {
     ['openai', 'Education & Courses', 'Expense'],
     ['igst', 'Bills & Utilities', 'Expense'],
     ['markup fee', 'Bills & Utilities', 'Expense'],
-    ['swiggy', 'Dining Out', 'Expense'],
-    ['zomato', 'Dining Out', 'Expense'],
+    ['swiggy', 'Food Orders', 'Expense'],
+    ['zomato', 'Food Orders', 'Expense'],
     ['blinkit', 'Groceries', 'Expense'],
     ['bigbasket', 'Groceries', 'Expense'],
     ['dmart', 'Groceries', 'Expense'],

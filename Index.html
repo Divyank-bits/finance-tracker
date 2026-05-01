@@ -527,11 +527,11 @@ body.is-desktop .toast { bottom:24px; }
 // ── PREVIEW STUB ───────────────────────────────────────────────────────────
 if (typeof google === 'undefined') {
   const STUB_CATS = [
-    'Groceries','Dining Out','Cafe & Snacks','Fuel','Transport (Uber/Auto)',
-    'Medical & Health','Pharmacy','Shopping (Clothing)','Electronics & Gadgets',
+    'Groceries','Food Orders','Eat Out','Cafe & Snacks','Fuel','Transport (Uber/Auto)',
+    'Medical & Health','Pharmacy','Shopping (Clothing)','Shopping (General)','Electronics & Gadgets',
     'Entertainment','Gaming','Travel & Holidays','Rent & Maintenance','Bills & Utilities',
-    'Internet & Phone','Education & Courses','EMI & Loan','Fitness & Gym','Gifts & Donations',
-    'Business & Work','Home Repair','Pet Care','Miscellaneous',
+    'Internet & Phone','Subscriptions','Education & Courses','EMI & Loan','Fitness & Gym','Gifts & Donations',
+    'Vehicle Maintenance & Repairs','Business & Work','Home Repair','Miscellaneous',
     'Salary','Freelance','Investment Returns','Refunds','Other Income',
     'Cashback & Rewards',
     'Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment',
@@ -566,14 +566,14 @@ if (typeof google === 'undefined') {
       types: ['Expense','Income','Transfer','Cashback','Investment','Lend'],
       budget: 70000,
       categoryTypeMap: {
-        'Groceries':'Expense','Dining Out':'Expense','Cafe & Snacks':'Expense',
+        'Groceries':'Expense','Food Orders':'Expense','Eat Out':'Expense','Cafe & Snacks':'Expense',
         'Fuel':'Expense','Transport (Uber/Auto)':'Expense','Medical & Health':'Expense',
-        'Pharmacy':'Expense','Shopping (Clothing)':'Expense','Electronics & Gadgets':'Expense',
+        'Pharmacy':'Expense','Shopping (Clothing)':'Expense','Shopping (General)':'Expense','Electronics & Gadgets':'Expense',
         'Entertainment':'Expense','Gaming':'Expense','Travel & Holidays':'Expense',
         'Rent & Maintenance':'Expense','Bills & Utilities':'Expense','Internet & Phone':'Expense',
         'Education & Courses':'Expense','EMI & Loan':'Expense','Fitness & Gym':'Expense',
         'Gifts & Donations':'Expense','Business & Work':'Expense','Home Repair':'Expense',
-        'Pet Care':'Expense','Miscellaneous':'Expense',
+        'Subscriptions':'Expense','Vehicle Maintenance & Repairs':'Expense','Miscellaneous':'Expense',
         'Salary':'Income','Freelance':'Income','Investment Returns':'Income',
         'Refunds':'Income','Other Income':'Income',
         'Cashback & Rewards':'Cashback',
@@ -633,13 +633,14 @@ let chartDonut = null, chartTrend = null, chartAccount = null, chartInvestment =
 let chartTrendMonths = 6;
 
 const CATEGORY_ICONS = {
-  'Groceries':'🛒','Dining Out':'🍽️','Cafe & Snacks':'☕','Fuel':'⛽',
+  'Groceries':'🛒','Food Orders':'🛵','Eat Out':'🍽️','Cafe & Snacks':'☕','Fuel':'⛽',
   'Transport (Uber/Auto)':'🚗','Medical & Health':'🏥','Pharmacy':'💊',
-  'Shopping (Clothing)':'🛍️','Electronics & Gadgets':'📱','Entertainment':'🎬',
+  'Shopping (Clothing)':'👗','Shopping (General)':'🛍️','Electronics & Gadgets':'📱','Entertainment':'🎬',
   'Gaming':'🎮','Travel & Holidays':'✈️','Rent & Maintenance':'🏠',
   'Bills & Utilities':'💡','Internet & Phone':'📶','Education & Courses':'📚',
   'EMI & Loan':'💰','Fitness & Gym':'🏋️','Gifts & Donations':'🎁',
-  'Business & Work':'💼','Home Repair':'🔧','Pet Care':'🐾',
+  'Business & Work':'💼','Home Repair':'🔧',
+  'Subscriptions':'📺','Vehicle Maintenance & Repairs':'🔧',
   'Cashback & Rewards':'🎁','Investment Returns':'💹','Loan Recovery':'🤝',
   'Miscellaneous':'💸','Income':'💰','Transfer':'🔄',
   'Investment':'💹','Lend':'🤝','Salary':'💰',
@@ -726,8 +727,6 @@ function renderDashboard(d) {
       <div class="card">${catBars?`<div class="cat-list">${catBars}</div>`:'<div class="empty-state" style="padding:30px 20px"><div class="empty-text">No expenses this month yet</div></div>'}</div>
       <div class="section-label">Category Breakdown</div>
       <div class="card chart-card">${catEntries.length>0?'<canvas id="pieChart" height="240"></canvas>':'<div class="empty-state" style="padding:30px 20px"><div class="empty-text">No data yet</div></div>'}</div>
-      <div class="section-label">6-Month Trend</div>
-      <div class="card chart-card" style="margin-bottom:8px"><canvas id="trendChart" height="180"></canvas></div>
     </div>`;
 
   setTimeout(() => {
@@ -743,21 +742,6 @@ function renderDashboard(d) {
             plugins:{ legend:{position:'bottom',labels:{color:'#888',font:{size:11},padding:12,boxWidth:10}}, tooltip:{callbacks:{label:ctx=>` ₹${ctx.raw.toLocaleString('en-IN')}`}} } }
         });
       }
-    }
-    const trendEl = document.getElementById('trendChart');
-    if (trendEl) {
-      const months = Object.keys(d.monthMap||{}).sort().slice(-6);
-      if (trendChart) trendChart.destroy();
-      trendChart = new Chart(trendEl.getContext('2d'), {
-        type:'bar',
-        data:{ labels:months.length?months:['No data'], datasets:[
-          {label:'Expense',data:months.map(m=>d.monthMap[m]?.expense||0),backgroundColor:'rgba(239,70,117,0.75)',borderRadius:6,borderSkipped:false},
-          {label:'Income', data:months.map(m=>d.monthMap[m]?.income||0), backgroundColor:'rgba(16,184,122,0.75)', borderRadius:6,borderSkipped:false}
-        ]},
-        options:{ responsive:true, maintainAspectRatio:true,
-          plugins:{legend:{labels:{color:'#888',font:{size:11},boxWidth:10}}},
-          scales:{ x:{ticks:{color:'#999',font:{size:10}},grid:{display:false},border:{display:false}}, y:{ticks:{color:'#999',font:{size:10},callback:v=>'₹'+(v>=1000?(v/1000).toFixed(0)+'k':v)},grid:{color:'rgba(0,0,0,0.05)'},border:{display:false}} } }
-      });
     }
   }, 200);
 }
@@ -781,6 +765,9 @@ function renderCharts(d, inv) {
     return `<option value="${m}">${label}</option>`;
   }).join('');
 
+  const years = [...new Set(Object.keys(d.monthMap || {}).map(m => m.split('-')[0]))].sort().reverse();
+  const yearOptions = `<option value="">All</option>` + years.map(y => `<option value="${y}">${y}</option>`).join('');
+
   document.getElementById('charts-content').innerHTML = `
     <div class="chart-section">
       <div class="chart-section-title">Spending by Category</div>
@@ -795,9 +782,10 @@ function renderCharts(d, inv) {
       <div class="chart-section-title">Monthly Trend</div>
       <div class="chart-wrap">
         <div class="chart-filter-row">
-          <button class="chart-filter-btn active" onclick="setTrendMonths(3,this)">3M</button>
-          <button class="chart-filter-btn" onclick="setTrendMonths(6,this)">6M</button>
-          <button class="chart-filter-btn" onclick="setTrendMonths(12,this)">12M</button>
+          <button class="chart-filter-btn active" onclick="setTrendFilter(3,this)">3M</button>
+          <button class="chart-filter-btn" onclick="setTrendFilter(6,this)">6M</button>
+          <button class="chart-filter-btn" onclick="setTrendFilter(12,this)">12M</button>
+          <select class="chart-month-select" id="trend-year-select" onchange="setTrendYear(this.value)">${yearOptions}</select>
         </div>
         <canvas id="chart-trend" height="200"></canvas>
       </div>
@@ -927,9 +915,14 @@ function setCategoryMonth(month) {
     .getCategoryDataForMonth(month);
 }
 
-function _buildTrendChart(d, months, COLORS) {
+function _buildTrendChart(d, months, COLORS, year) {
   const allMonths = Object.keys(d.monthMap || {}).sort();
-  const sliced = allMonths.slice(-months);
+  let sliced;
+  if (year) {
+    sliced = allMonths.filter(m => m.startsWith(year));
+  } else {
+    sliced = allMonths.slice(-months);
+  }
   const trendEl = document.getElementById('chart-trend');
   if (!trendEl) return;
   if (chartTrend) chartTrend.destroy();
@@ -953,11 +946,18 @@ function _buildTrendChart(d, months, COLORS) {
   });
 }
 
-function setTrendMonths(n, btn) {
+function setTrendFilter(n, btn) {
   chartTrendMonths = n;
   document.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  const yearSel = document.getElementById('trend-year-select');
+  if (yearSel) yearSel.value = '';
   if (window._chartsData) _buildTrendChart(window._chartsData, n, ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399']);
+}
+
+function setTrendYear(year) {
+  document.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
+  if (window._chartsData) _buildTrendChart(window._chartsData, chartTrendMonths, ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399'], year);
 }
 
 // ── ADD TRANSACTION ────────────────────────────────────────────────────────
@@ -1095,8 +1095,12 @@ function renderTransactions(txs, filter) {
   }
   const groups = {};
   filtered.forEach(tx => { const key=dateDividerKey(tx.date); if(!groups[key]) groups[key]=[]; groups[key].push(tx); });
+  const sortedGroups = Object.entries(groups).sort((a, b) => {
+    const da = parseDateStr(a[1][0].date), db = parseDateStr(b[1][0].date);
+    return (db||0) - (da||0);
+  });
   let html = '';
-  Object.entries(groups).forEach(([dateKey,items]) => {
+  sortedGroups.forEach(([dateKey,items]) => {
     html += `<div class="tx-date-divider">${dateKey}</div><div class="tx-list" style="box-shadow:var(--shadow-sm);border-radius:var(--radius-lg);margin-bottom:12px;overflow:hidden;">`;
     items.forEach(tx => {
       const icon = tx.type==='Income'     ? '💰'
