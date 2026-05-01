@@ -13,18 +13,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install clasp
-        run: npm install -g @google/clasp
+        run: npm install -g @google/clasp@latest
 
       - name: Write .clasprc.json
+        env:
+          CLASPRC: ${{ secrets.CLASPRC_JSON }}
         run: |
-          echo '{
-            "tokens": {
-              "default": ${{ secrets.CLASPRC_JSON }}
-            }
-          }' > ~/.clasprc.json
+          node -e "
+            const creds = JSON.parse(process.env.CLASPRC);
+            const rc = { tokens: { default: creds }, isLocalCreds: false };
+            require('fs').writeFileSync(require('os').homedir() + '/.clasprc.json', JSON.stringify(rc));
+          "
 
       - name: Push to Apps Script
         run: clasp push --force
