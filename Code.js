@@ -515,10 +515,39 @@ function getCategoryDataForMonth(month) {
   return { categoryMap, accountMap };
 }
 
+function getCategoryDataForPeriod(fromMonth) {
+  // fromMonth = 'YYYY-MM' cutoff (>= this month) or '' for all time
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  const lastRow = sh.getLastRow();
+  const categoryMap = {};
+  if (lastRow >= 2) {
+    const data = sh.getRange(2, 1, lastRow - 1, 13).getValues();
+    data.forEach(r => {
+      if (r[2] !== 'Expense') return;
+      const amount = parseFloat(r[4]) || 0;
+      const cat = r[3];
+      let txMonth = '';
+      try {
+        const parsedDate = _parseDate(r[1]);
+        if (parsedDate && parsedDate.getFullYear() > 1971)
+          txMonth = Utilities.formatDate(parsedDate, 'Asia/Kolkata', 'yyyy-MM');
+      } catch(e) { txMonth = String(r[11] || '').substring(0, 7); }
+      if (!fromMonth || txMonth >= fromMonth) {
+        categoryMap[cat] = (categoryMap[cat] || 0) + amount;
+      }
+    });
+  }
+  return { categoryMap };
+}
+
 function getAccountDataForPeriod(filter) {
-  // filter = 'YYYY-MM', 'YYYY', or '' for all time
-  const isYearOnly = /^\d{4}$/.test(filter);
-  const isMonth    = /^\d{4}-\d{2}$/.test(filter);
+  // filter = 'YYYY-MM' (exact), 'YYYY' (year), 'from:YYYY-MM' (>= cutoff), or '' (all)
+  const isFrom     = filter && filter.startsWith('from:');
+  const fromMonth  = isFrom ? filter.slice(5) : '';
+  const cleanFilter = isFrom ? '' : filter;
+  const isYearOnly = /^\d{4}$/.test(cleanFilter);
+  const isMonth    = /^\d{4}-\d{2}$/.test(cleanFilter);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
   const lastRow = sh.getLastRow();
@@ -535,7 +564,12 @@ function getAccountDataForPeriod(filter) {
         if (parsedDate && parsedDate.getFullYear() > 1971)
           txMonth = Utilities.formatDate(parsedDate, 'Asia/Kolkata', 'yyyy-MM');
       } catch(e) { txMonth = String(r[11] || '').substring(0, 7); }
-      const matches = !filter || (isYearOnly ? txMonth.startsWith(filter) : isMonth ? txMonth === filter : true);
+      let matches;
+      if (isFrom)          matches = txMonth >= fromMonth;
+      else if (!cleanFilter) matches = true;
+      else if (isYearOnly) matches = txMonth.startsWith(cleanFilter);
+      else if (isMonth)    matches = txMonth === cleanFilter;
+      else                 matches = true;
       if (matches) accountMap[acc] = (accountMap[acc] || 0) + amount;
     });
   }

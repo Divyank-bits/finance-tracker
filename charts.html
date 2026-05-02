@@ -5,108 +5,148 @@ function loadCharts() {
     '<div class="loader"><div class="spinner"></div>Loading charts…</div>';
   google.script.run.withSuccessHandler(dash => {
     window._chartsData = dash;
-    google.script.run.withSuccessHandler(inv => renderCharts(dash, inv)).getInvestmentTrend();
+    google.script.run.withSuccessHandler(inv => {
+      window._invData = inv;
+      renderCharts(dash, inv);
+    }).getInvestmentTrend();
   }).getDashboardData();
 }
 
+function _makeFilterRow(prefix, onNmCb, onMonthCb, onYearCb, monthOpts, yearOpts, defaultN) {
+  return `
+    <div class="chart-filter-row">
+      <div class="chart-filter-left">
+        <button class="chart-filter-btn ${defaultN===3?'active':''}" onclick="${onNmCb}(3,this,'${prefix}')">3M</button>
+        <button class="chart-filter-btn ${defaultN===6?'active':''}" onclick="${onNmCb}(6,this,'${prefix}')">6M</button>
+        <button class="chart-filter-btn ${defaultN===12?'active':''}" onclick="${onNmCb}(12,this,'${prefix}')">12M</button>
+      </div>
+      <div class="chart-filter-right">
+        <select class="chart-month-select" id="${prefix}-mo" onchange="${onMonthCb}('${prefix}')">
+          <option value="">Month</option>${monthOpts}
+        </select>
+        <select class="chart-month-select" id="${prefix}-yr" onchange="${onYearCb}('${prefix}')">
+          <option value="">Year</option>${yearOpts}
+        </select>
+      </div>
+    </div>`;
+}
+
 function renderCharts(d, inv) {
-  const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399','#fb7185','#38bdf8'];
-  const months = Object.keys(d.monthMap || {}).sort().reverse();
-  const monthOptions = months.map(m => {
+  const allMonthKeys = Object.keys(d.monthMap || {}).sort().reverse();
+  const monthOpts = allMonthKeys.map(m => {
     const [y, mo] = m.split('-');
-    const label = new Date(y, mo-1).toLocaleDateString('en-IN', {month:'long', year:'numeric'});
+    const label = new Date(y, mo-1).toLocaleDateString('en-IN', {month:'short', year:'numeric'});
     return `<option value="${m}">${label}</option>`;
   }).join('');
-
-  const years = [...new Set(Object.keys(d.monthMap || {}).map(m => m.split('-')[0]))].sort().reverse();
-  const yearOptions = `<option value="">All</option>` + years.map(y => `<option value="${y}">${y}</option>`).join('');
+  const years = [...new Set(allMonthKeys.map(m => m.split('-')[0]))].sort().reverse();
+  const yearOpts = years.map(y => `<option value="${y}">${y}</option>`).join('');
 
   document.getElementById('charts-content').innerHTML = `
     <div class="chart-section">
       <div class="chart-section-title">Spending by Category</div>
       <div class="chart-wrap">
-        <div class="chart-filter-row">
-          <select class="chart-month-select" id="cat-month-select" onchange="setCategoryMonth(this.value)">${monthOptions}</select>
-          <select class="chart-month-select" id="cat-year-select" onchange="setCategoryYear(this.value)"><option value="">By Month</option>${yearOptions}</select>
-        </div>
+        ${_makeFilterRow('cat','_onNmFilter','_onMonthFilter','_onYearFilter', monthOpts, yearOpts, 0)}
         <canvas id="chart-donut" height="260"></canvas>
       </div>
     </div>
     <div class="chart-section">
       <div class="chart-section-title">Monthly Trend</div>
       <div class="chart-wrap">
-        <div class="chart-filter-row">
-          <button class="chart-filter-btn active" onclick="setTrendFilter(3,this)">3M</button>
-          <button class="chart-filter-btn" onclick="setTrendFilter(6,this)">6M</button>
-          <button class="chart-filter-btn" onclick="setTrendFilter(12,this)">12M</button>
-          <select class="chart-month-select" id="trend-year-select" onchange="setTrendYear(this.value)">${yearOptions}</select>
-        </div>
+        ${_makeFilterRow('trend','_onNmFilter','_onMonthFilter','_onYearFilter', monthOpts, yearOpts, 3)}
         <canvas id="chart-trend" height="200"></canvas>
       </div>
     </div>
     <div class="chart-section">
       <div class="chart-section-title">Monthly Investment Breakdown</div>
       <div class="chart-wrap">
-        <div class="chart-filter-row">
-          <select class="chart-month-select" id="inv-year-select" onchange="setInvYear(this.value)">${yearOptions}</select>
-        </div>
+        ${_makeFilterRow('inv','_onNmFilter','_onMonthFilter','_onYearFilter', monthOpts, yearOpts, 0)}
         <canvas id="chart-investment" height="220"></canvas>
       </div>
     </div>
     <div class="chart-section">
       <div class="chart-section-title">Account-wise Spending</div>
       <div class="chart-wrap">
-        <div class="chart-filter-row">
-          <select class="chart-month-select" id="acc-month-select" onchange="setAccMonth(this.value)">${monthOptions}</select>
-          <select class="chart-month-select" id="acc-year-select" onchange="setAccYear(this.value)"><option value="">All</option>${yearOptions}</select>
-        </div>
+        ${_makeFilterRow('acc','_onNmFilter','_onMonthFilter','_onYearFilter', monthOpts, yearOpts, 0)}
         <canvas id="chart-account" height="220"></canvas>
       </div>
     </div>
   `;
 
   window._chartsData = d;
+  window._invData = inv;
 
   setTimeout(() => {
-    _buildDonutChart(d.categoryMap);
-    _buildTrendChart(d, chartTrendMonths, COLORS);
-    if (inv) _buildInvestmentChart(inv);
-
-    _buildAccountChart(d.accountMap);
+    _applyFilter('cat');
+    _applyFilter('trend', 3);
+    _applyFilter('inv');
+    _applyFilter('acc');
   }, 150);
 }
 
-function _buildInvestmentChart(inv) {
-  const INV_COLORS = { 'Mutual Fund':'#7c5cf6', 'Stocks & Zerodha':'#10b87a', 'Fixed Deposit':'#f5a623', 'Plot & Property':'#4f8ef7', 'PPF & NPS':'#ef4675', 'Other Investment':'#a78bfa' };
-  const months = Object.keys(inv.monthMap).sort().slice(-6);
-  const el = document.getElementById('chart-investment');
-  if (!el) return;
-  if (chartInvestment) chartInvestment.destroy();
-  const activeCats = inv.categories.filter(c => months.some(m => inv.monthMap[m]?.[c] > 0));
-  chartInvestment = new Chart(el.getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels: months,
-      datasets: activeCats.map(cat => ({
-        label: cat,
-        data: months.map(m => inv.monthMap[m]?.[cat] || 0),
-        backgroundColor: INV_COLORS[cat] || '#888',
-        borderRadius: 4,
-        borderSkipped: false
-      }))
-    },
-    options: {
-      responsive: true, maintainAspectRatio: true,
-      plugins: {
-        legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 }, padding: 12, boxWidth: 10 } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ₹${ctx.raw.toLocaleString('en-IN')}` } }
-      },
-      scales: {
-        x: { stacked: true, ticks: { color: '#999', font: { size: 10 } }, grid: { display: false }, border: { display: false } },
-        y: { stacked: true, ticks: { color: '#999', font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } }
-      }
-    }
-  });
+// ── FILTER HANDLERS ───────────────────────────────────────────────────────
+
+function _onNmFilter(n, btn, prefix) {
+  // clear month/year, mark button active
+  document.getElementById(prefix+'-mo').value = '';
+  document.getElementById(prefix+'-yr').value = '';
+  document.querySelectorAll(`#${prefix}-mo`).forEach(()=>{});
+  // deactivate all buttons in this chart's filter row only
+  btn.closest('.chart-filter-row').querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _applyFilter(prefix, n);
+}
+
+function _onMonthFilter(prefix) {
+  // clear N buttons
+  const row = document.getElementById(prefix+'-mo').closest('.chart-filter-row');
+  row.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
+  _applyFilter(prefix);
+}
+
+function _onYearFilter(prefix) {
+  const row = document.getElementById(prefix+'-yr').closest('.chart-filter-row');
+  row.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
+  // clear month when year changes
+  document.getElementById(prefix+'-mo').value = '';
+  _applyFilter(prefix);
+}
+
+// ── CORE FILTER RESOLVER ──────────────────────────────────────────────────
+
+function _applyFilter(prefix, nmOverride) {
+  const moSel = document.getElementById(prefix+'-mo');
+  const yrSel = document.getElementById(prefix+'-yr');
+  const mo = moSel ? moSel.value : '';   // 'YYYY-MM' or ''
+  const yr = yrSel ? yrSel.value : '';   // 'YYYY' or ''
+
+  // Determine filter string: YYYY-MM > YYYY > nMonths > all
+  let filter = '';
+  let nMonths = nmOverride || 0;
+  if (mo)      { filter = mo; nMonths = 0; }
+  else if (yr) { filter = yr; nMonths = 0; }
+
+  if (prefix === 'cat')   _loadCatChart(filter, nMonths);
+  else if (prefix === 'trend') _loadTrendChart(filter, nMonths);
+  else if (prefix === 'inv')   _loadInvChart(filter, nMonths);
+  else if (prefix === 'acc')   _loadAccChart(filter, nMonths);
+}
+
+// ── CATEGORY DONUT ────────────────────────────────────────────────────────
+
+function _loadCatChart(filter, nMonths) {
+  const el = document.getElementById('chart-donut');
+  if (el) el.style.opacity = '0.4';
+  const cb = res => { if (el) el.style.opacity='1'; _buildDonutChart(res.categoryMap); };
+
+  if (filter && /^\d{4}-\d{2}$/.test(filter)) {
+    google.script.run.withSuccessHandler(cb).getCategoryDataForMonth(filter);
+  } else if (filter && /^\d{4}$/.test(filter)) {
+    google.script.run.withSuccessHandler(cb).getCategoryDataForYear(filter);
+  } else if (nMonths) {
+    google.script.run.withSuccessHandler(cb).getCategoryDataForPeriod(_nMonthsCutoff(nMonths));
+  } else {
+    google.script.run.withSuccessHandler(cb).getCategoryDataForPeriod('');
+  }
 }
 
 function _buildDonutChart(categoryMap) {
@@ -118,7 +158,7 @@ function _buildDonutChart(categoryMap) {
   if (!catEntries.length) {
     donutEl.style.display = 'none';
     const wrap = donutEl.parentElement;
-    if (!wrap.querySelector('.empty-state')) wrap.insertAdjacentHTML('beforeend','<div class="empty-state" style="padding:30px 0"><div class="empty-text">No expenses for this month</div></div>');
+    if (!wrap.querySelector('.empty-state')) wrap.insertAdjacentHTML('beforeend','<div class="empty-state" style="padding:30px 0"><div class="empty-text">No expenses for this period</div></div>');
     return;
   }
   donutEl.style.display = 'block';
@@ -140,41 +180,26 @@ function _buildDonutChart(categoryMap) {
   });
 }
 
-function setCategoryMonth(month) {
-  const yearSel = document.getElementById('cat-year-select');
-  if (yearSel) yearSel.value = '';
-  const donutEl = document.getElementById('chart-donut');
-  if (donutEl) donutEl.style.opacity = '0.4';
-  google.script.run
-    .withSuccessHandler(res => {
-      if (donutEl) donutEl.style.opacity = '1';
-      _buildDonutChart(res.categoryMap);
-    })
-    .getCategoryDataForMonth(month);
-}
+// ── MONTHLY TREND ─────────────────────────────────────────────────────────
 
-function setCategoryYear(year) {
-  if (!year) return;
-  const monthSel = document.getElementById('cat-month-select');
-  if (monthSel) monthSel.value = '';
-  const donutEl = document.getElementById('chart-donut');
-  if (donutEl) donutEl.style.opacity = '0.4';
-  google.script.run
-    .withSuccessHandler(res => {
-      if (donutEl) donutEl.style.opacity = '1';
-      _buildDonutChart(res.categoryMap);
-    })
-    .getCategoryDataForYear(year);
-}
-
-function _buildTrendChart(d, months, COLORS, year) {
+function _loadTrendChart(filter, nMonths) {
+  const d = window._chartsData;
+  if (!d) return;
   const allMonths = Object.keys(d.monthMap || {}).sort();
   let sliced;
-  if (year) {
-    sliced = allMonths.filter(m => m.startsWith(year));
+  if (filter && /^\d{4}-\d{2}$/.test(filter)) {
+    sliced = allMonths.filter(m => m === filter);
+  } else if (filter && /^\d{4}$/.test(filter)) {
+    sliced = allMonths.filter(m => m.startsWith(filter));
+  } else if (nMonths) {
+    sliced = allMonths.slice(-nMonths);
   } else {
-    sliced = allMonths.slice(-months);
+    sliced = allMonths; // all time
   }
+  _buildTrendChart(sliced, d);
+}
+
+function _buildTrendChart(sliced, d) {
   const trendEl = document.getElementById('chart-trend');
   if (!trendEl) return;
   if (chartTrend) chartTrend.destroy();
@@ -198,57 +223,28 @@ function _buildTrendChart(d, months, COLORS, year) {
   });
 }
 
-function setTrendFilter(n, btn) {
-  chartTrendMonths = n;
-  document.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const yearSel = document.getElementById('trend-year-select');
-  if (yearSel) yearSel.value = '';
-  if (window._chartsData) _buildTrendChart(window._chartsData, n, ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399']);
-}
+// ── INVESTMENT ────────────────────────────────────────────────────────────
 
-function setTrendYear(year) {
-  document.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
-  if (window._chartsData) _buildTrendChart(window._chartsData, chartTrendMonths, ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399'], year);
-}
-
-function _buildAccountChart(accountMap) {
-  const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399','#fb7185','#38bdf8'];
-  const accEntries = Object.entries(accountMap || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  const accEl = document.getElementById('chart-account');
-  if (!accEl) return;
-  if (chartAccount) chartAccount.destroy();
-  if (!accEntries.length) return;
-  chartAccount = new Chart(accEl.getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels: accEntries.map(([a])=>a),
-      datasets: [{ data: accEntries.map(([,v])=>v), backgroundColor: COLORS, borderRadius: 6, borderSkipped: false }]
-    },
-    options: {
-      indexAxis: 'y', responsive: true, maintainAspectRatio: true,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ₹${ctx.raw.toLocaleString('en-IN')}` } } },
-      scales: {
-        x: { ticks: { color: '#999', font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } },
-        y: { ticks: { color: '#666', font: { size: 12 } }, grid: { display: false }, border: { display: false } }
-      }
-    }
-  });
-}
-
-function setInvYear(year) {
-  const el = document.getElementById('chart-investment');
-  if (el) el.style.opacity = '0.4';
-  google.script.run.withSuccessHandler(inv => {
-    if (el) el.style.opacity = '1';
-    _buildInvestmentChartForYear(inv, year);
-  }).getInvestmentTrend();
-}
-
-function _buildInvestmentChartForYear(inv, year) {
-  const INV_COLORS = { 'Mutual Fund':'#7c5cf6', 'Stocks & Zerodha':'#10b87a', 'Fixed Deposit':'#f5a623', 'Plot & Property':'#4f8ef7', 'PPF & NPS':'#ef4675', 'Other Investment':'#a78bfa' };
+function _loadInvChart(filter, nMonths) {
+  const inv = window._invData;
+  if (!inv) return;
   const allMonths = Object.keys(inv.monthMap).sort();
-  const months = year ? allMonths.filter(m => m.startsWith(year)) : allMonths.slice(-6);
+  let months;
+  if (filter && /^\d{4}-\d{2}$/.test(filter)) {
+    months = allMonths.filter(m => m === filter);
+  } else if (filter && /^\d{4}$/.test(filter)) {
+    months = allMonths.filter(m => m.startsWith(filter));
+  } else if (nMonths) {
+    months = allMonths.slice(-nMonths);
+  } else {
+    months = allMonths; // all time
+  }
+  _buildInvestmentChart(inv, months);
+}
+
+function _buildInvestmentChart(inv, months) {
+  const INV_COLORS = { 'Mutual Fund':'#7c5cf6', 'Stocks & Zerodha':'#10b87a', 'Fixed Deposit':'#f5a623', 'Plot & Property':'#4f8ef7', 'PPF & NPS':'#ef4675', 'Other Investment':'#a78bfa' };
+  if (!months) months = Object.keys(inv.monthMap).sort().slice(-6);
   const el = document.getElementById('chart-investment');
   if (!el) return;
   if (chartInvestment) chartInvestment.destroy();
@@ -278,26 +274,50 @@ function _buildInvestmentChartForYear(inv, year) {
   });
 }
 
-function setAccMonth(month) {
-  const yearSel = document.getElementById('acc-year-select');
-  const year = yearSel ? yearSel.value : '';
-  const filter = month && year ? `${year}-${month}` : month ? `${new Date().getFullYear()}-${month}` : year || '';
-  _fetchAndBuildAccountChart(filter);
-}
+// ── ACCOUNT-WISE ──────────────────────────────────────────────────────────
 
-function setAccYear(year) {
-  const monthSel = document.getElementById('acc-month-select');
-  const month = monthSel ? monthSel.value : '';
-  const filter = year && month ? `${year}-${month}` : year || '';
-  _fetchAndBuildAccountChart(filter);
-}
-
-function _fetchAndBuildAccountChart(filter) {
+function _loadAccChart(filter, nMonths) {
   const el = document.getElementById('chart-account');
   if (el) el.style.opacity = '0.4';
+  // 'from:YYYY-MM' tells backend to use >= comparison; plain 'YYYY-MM' = exact month
+  let serverFilter = filter;
+  if (!filter && nMonths) serverFilter = 'from:' + _nMonthsCutoff(nMonths);
   google.script.run.withSuccessHandler(res => {
     if (el) el.style.opacity = '1';
     _buildAccountChart(res.accountMap);
-  }).getAccountDataForPeriod(filter);
+  }).getAccountDataForPeriod(serverFilter);
+}
+
+function _buildAccountChart(accountMap) {
+  const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399','#fb7185','#38bdf8'];
+  const accEntries = Object.entries(accountMap || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const accEl = document.getElementById('chart-account');
+  if (!accEl) return;
+  if (chartAccount) chartAccount.destroy();
+  if (!accEntries.length) return;
+  chartAccount = new Chart(accEl.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: accEntries.map(([a])=>a),
+      datasets: [{ data: accEntries.map(([,v])=>v), backgroundColor: COLORS, borderRadius: 6, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ₹${ctx.raw.toLocaleString('en-IN')}` } } },
+      scales: {
+        x: { ticks: { color: '#999', font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } },
+        y: { ticks: { color: '#666', font: { size: 12 } }, grid: { display: false }, border: { display: false } }
+      }
+    }
+  });
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+
+function _nMonthsCutoff(n) {
+  // returns 'YYYY-MM' of the start month (inclusive) for last N months
+  const d = new Date();
+  d.setMonth(d.getMonth() - (n - 1));
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 </script>
