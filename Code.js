@@ -365,6 +365,40 @@ function getTransactions(limit) {
   }
 }
 
+function getTransactionsByMonth(month) {
+  // month = 'YYYY-MM' or '' for recent 200
+  if (!month) return getTransactions(200);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+  const data = sh.getRange(2, 1, lastRow - 1, 13).getValues();
+  const result = [];
+  data.forEach(r => {
+    let txMonth = '';
+    try {
+      const d = _parseDate(r[1]);
+      txMonth = Utilities.formatDate(d, 'Asia/Kolkata', 'yyyy-MM');
+    } catch(e) {
+      txMonth = String(r[11] || '').substring(0, 7);
+    }
+    if (txMonth === month) {
+      let dateStr = '';
+      try {
+        const d = _parseDate(r[1]);
+        dateStr = Utilities.formatDate(d, 'Asia/Kolkata', 'yyyy-MM-dd');
+      } catch(e) { dateStr = String(r[1] || ''); }
+      result.push({
+        id: r[0], date: dateStr, type: r[2], category: r[3],
+        amount: r[4], account: r[5], description: r[6],
+        notes: r[7], isCashback: r[8], cashbackAmount: r[9],
+        linkedTxId: r[10], month: txMonth
+      });
+    }
+  });
+  return result;
+}
+
 function getDashboardData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);

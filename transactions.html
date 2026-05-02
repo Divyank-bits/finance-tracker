@@ -3,17 +3,51 @@
 function loadTransactions() {
   document.getElementById('tx-list-content').innerHTML =
     '<div class="loader"><div class="spinner"></div>Loading…</div>';
+  const monthSel = document.getElementById('tx-month');
+  const month = monthSel ? monthSel.value : '';
   google.script.run.withSuccessHandler(txs => {
     allTxs = txs || [];
-    renderTransactions(allTxs, currentFilter);
-  }).getTransactions(200);
+    applyTxFilters();
+  }).getTransactionsByMonth(month);
+}
+
+function loadTxForMonth(month) {
+  document.getElementById('tx-list-content').innerHTML =
+    '<div class="loader"><div class="spinner"></div>Loading…</div>';
+  document.getElementById('tx-summary-bar').innerHTML = '';
+  google.script.run.withSuccessHandler(txs => {
+    allTxs = txs || [];
+    applyTxFilters();
+  }).getTransactionsByMonth(month);
 }
 
 function filterTx(type, btn) {
   currentFilter = type;
   document.querySelectorAll('.tx-chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
-  renderTransactions(allTxs, type);
+  applyTxFilters();
+}
+
+function applyTxFilters() {
+  const q = (document.getElementById('tx-search')?.value || '').toLowerCase().trim();
+  let txs = currentFilter === 'All' ? allTxs : allTxs.filter(t => t.type === currentFilter);
+  if (q) txs = txs.filter(t =>
+    (t.description||'').toLowerCase().includes(q) ||
+    (t.category||'').toLowerCase().includes(q) ||
+    (t.account||'').toLowerCase().includes(q) ||
+    String(t.amount||'').includes(q)
+  );
+  renderTransactions(txs);
+  // summary bar
+  const bar = document.getElementById('tx-summary-bar');
+  if (bar) {
+    const total = txs.length;
+    const expense = txs.filter(t=>t.type==='Expense').reduce((s,t)=>s+parseFloat(t.amount||0),0);
+    const income  = txs.filter(t=>t.type==='Income' ||t.type==='Cashback').reduce((s,t)=>s+parseFloat(t.amount||0),0);
+    bar.innerHTML = total
+      ? `<div class="tx-summary-bar"><span>${total} transactions</span><span class="income-text">+₹${income.toLocaleString('en-IN',{maximumFractionDigits:0})}</span><span class="expense-text">−₹${expense.toLocaleString('en-IN',{maximumFractionDigits:0})}</span></div>`
+      : '';
+  }
 }
 
 function parseDateStr(raw) {
@@ -43,8 +77,8 @@ function dateDividerKey(raw) {
   return d.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short'});
 }
 
-function renderTransactions(txs, filter) {
-  const filtered = filter==='All' ? txs : txs.filter(t => t.type===filter);
+function renderTransactions(txs) {
+  const filtered = txs;
   if (!filtered || filtered.length===0) {
     document.getElementById('tx-list-content').innerHTML =
       '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No transactions yet</div></div>';

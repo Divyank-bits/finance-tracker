@@ -62,6 +62,7 @@ if (typeof google === 'undefined') {
     }),
     getDashboardData:() => STUB_DASH,
     getTransactions: () => STUB_TXS,
+    getTransactionsByMonth: (month) => month ? STUB_TXS.filter(t => (t.month||'').startsWith(month)) : STUB_TXS,
     getLendingData:  () => STUB_LENDING,
     addTransaction:  () => ({success:true, id:'TX'+Date.now()}),
     addLendingEntry: () => ({success:true}),

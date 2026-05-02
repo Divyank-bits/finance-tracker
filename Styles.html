@@ -121,6 +121,16 @@ body.is-desktop .toast      { bottom: 24px !important; }
 .chart-card { padding:20px; }
 .chart-card canvas { width:100% !important; }
 
+/* ── TX SEARCH + MONTH ── */
+.tx-search-bar { display:flex; gap:8px; padding:12px 16px 4px; }
+.tx-search-input { flex:1; padding:9px 14px; border-radius:var(--radius-md); border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-size:13px; font-family:inherit; outline:none; transition:border-color 0.18s; }
+.tx-search-input:focus { border-color:var(--accent); }
+.tx-month-input { padding:9px 10px; border-radius:var(--radius-md); border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-size:13px; font-family:inherit; outline:none; cursor:pointer; transition:border-color 0.18s; }
+.tx-month-input:focus { border-color:var(--accent); }
+.tx-summary-bar { display:flex; gap:12px; align-items:center; padding:4px 16px 8px; font-size:12px; color:var(--muted); font-weight:600; }
+.tx-summary-bar .income-text { color:var(--green); }
+.tx-summary-bar .expense-text { color:var(--red); }
+
 /* ── TX FILTER CHIPS ── */
 .tx-filter { display:flex; gap:6px; padding:4px 16px 16px; overflow-x:auto; scrollbar-width:none; }
 .tx-filter::-webkit-scrollbar { display:none; }

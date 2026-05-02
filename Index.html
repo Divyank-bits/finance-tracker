@@ -84,6 +84,10 @@
 <!-- ── TRANSACTION HISTORY ── -->
 <div id="page-transactions" class="page">
   <div class="mob-header"><div><div class="mob-header-title">History</div></div></div>
+  <div class="tx-search-bar">
+    <input class="tx-search-input" id="tx-search" type="text" placeholder="Search description, category…" oninput="applyTxFilters()"/>
+    <input class="tx-month-input" id="tx-month" type="month" onchange="loadTxForMonth(this.value)"/>
+  </div>
   <div class="tx-filter">
     <button class="tx-chip active" onclick="filterTx('All',this)">All</button>
     <button class="tx-chip" onclick="filterTx('Expense',this)">Expenses</button>
@@ -94,6 +98,7 @@
     <button class="tx-chip" onclick="filterTx('Lend',this)">Lends</button>
   </div>
   <div class="page-body">
+    <div id="tx-summary-bar"></div>
     <div id="tx-list-content"><div class="loader"><div class="spinner"></div>Loading…</div></div>
   </div>
 </div>
