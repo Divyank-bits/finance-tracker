@@ -1,0 +1,175 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+<script>
+// ── PREVIEW STUB ───────────────────────────────────────────────────────────
+if (typeof google === 'undefined') {
+  const STUB_CATS = [
+    'Groceries','Food Orders','Eat Out','Cafe & Snacks','Fuel','Transport (Uber/Auto)',
+    'Medical & Health','Pharmacy','Shopping (Clothing)','Shopping (General)','Electronics & Gadgets',
+    'Entertainment','Gaming','Travel & Holidays','Flights','Train & Metro','Rent & Maintenance','Bills & Utilities',
+    'Internet & Phone','Subscriptions','Education & Courses','EMI & Loan','Fitness & Gym','Gifts & Donations',
+    'Vehicle Maintenance & Repairs','Business & Work','Home Repair','Miscellaneous',
+    'Salary','Freelance','Investment Returns','Refunds','Other Income',
+    'Cashback & Rewards',
+    'Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment',
+    'Personal Lend','Business Lend'
+  ];
+  const STUB_TXS = [
+    {date:'2026-04-26',type:'Expense',    category:'Dining Out',         amount:680,   account:'ICICI CC',  description:'Swiggy dinner'},
+    {date:'2026-04-26',type:'Investment', category:'Investment',         amount:15000, account:'HDFC Bank', description:'Zerodha SIP'},
+    {date:'2026-04-25',type:'Income',     category:'Income',             amount:85000, account:'HDFC Bank', description:'April salary'},
+    {date:'2026-04-25',type:'Expense',    category:'Groceries',          amount:1840,  account:'Amazon Pay',description:'BigBasket order'},
+    {date:'2026-04-24',type:'Lend',       category:'Lend',               amount:5000,  account:'HDFC Bank', description:'Lent to Rahul'},
+    {date:'2026-04-24',type:'Cashback',   category:'Cashback & Rewards', amount:120,   account:'ICICI CC',  description:'Amazon cashback'},
+    {date:'2026-04-23',type:'Expense',    category:'Bills & Utilities',  amount:1299,  account:'HDFC Bank', description:'Electricity bill'},
+    {date:'2026-04-22',type:'Transfer',   category:'Transfer',           amount:5000,  account:'HDFC Bank', description:'Sent to savings'},
+  ];
+  const STUB_DASH = {
+    currentExpense:6428, budget:70000, percentUsed:9,
+    totalIncome:85000, totalCashback:120, netSpending:6308,
+    totalInvested:15000, totalLent:5000,
+    categoryMap:{'Groceries':1840,'Dining Out':680,'Bills & Utilities':1299,'Transport (Uber/Auto)':340,'Cafe & Snacks':240},
+    monthMap:{'2025-11':{expense:18200,income:82000},'2025-12':{expense:22100,income:82000},'2026-01':{expense:19800,income:85000},'2026-02':{expense:17400,income:85000},'2026-03':{expense:21300,income:85000},'2026-04':{expense:6428,income:85000}},
+    accountMap:{'HDFC Bank':12400,'ICICI CC':3200,'Amazon Pay':1840,'GPay':980,'UPI Lite':340}
+  };
+  const STUB_ACCOUNTS = ['HDFC Bank','ICICI CC','GPay','Amazon Pay'];
+  const STUB_LENDING = [
+    {rowIdx:0, person:'Rahul', amount:5000, dateLent:'2026-04-24', dueDate:'2026-05-24', status:'Pending', repaidAmount:0, notes:''},
+  ];
+  const RESPONSES = {
+    getConfig: () => ({
+      accounts: STUB_ACCOUNTS.slice(),
+      categories: STUB_CATS,
+      types: ['Expense','Income','Transfer','Cashback','Investment','Lend'],
+      budget: 70000,
+      categoryTypeMap: {
+        'Groceries':'Expense','Food Orders':'Expense','Eat Out':'Expense','Cafe & Snacks':'Expense',
+        'Fuel':'Expense','Transport (Uber/Auto)':'Expense','Medical & Health':'Expense',
+        'Pharmacy':'Expense','Shopping (Clothing)':'Expense','Shopping (General)':'Expense','Electronics & Gadgets':'Expense',
+        'Entertainment':'Expense','Gaming':'Expense','Travel & Holidays':'Expense','Flights':'Expense','Train & Metro':'Expense',
+        'Rent & Maintenance':'Expense','Bills & Utilities':'Expense','Internet & Phone':'Expense',
+        'Education & Courses':'Expense','EMI & Loan':'Expense','Fitness & Gym':'Expense',
+        'Gifts & Donations':'Expense','Business & Work':'Expense','Home Repair':'Expense',
+        'Subscriptions':'Expense','Vehicle Maintenance & Repairs':'Expense','Miscellaneous':'Expense',
+        'Salary':'Income','Freelance':'Income','Investment Returns':'Income',
+        'Refunds':'Income','Other Income':'Income',
+        'Cashback & Rewards':'Cashback',
+        'Mutual Fund':'Investment','Stocks & Zerodha':'Investment','Fixed Deposit':'Investment',
+        'Plot & Property':'Investment','PPF & NPS':'Investment','Other Investment':'Investment',
+        'Personal Lend':'Lend','Business Lend':'Lend'
+      }
+    }),
+    getDashboardData:() => STUB_DASH,
+    getTransactions: () => STUB_TXS,
+    getLendingData:  () => STUB_LENDING,
+    addTransaction:  () => ({success:true, id:'TX'+Date.now()}),
+    addLendingEntry: () => ({success:true}),
+    updateBudget:    () => ({}),
+    addAccount:      (name) => { STUB_ACCOUNTS.push(name); return {accounts:STUB_ACCOUNTS.slice(),categories:STUB_CATS,types:['Expense','Income','Transfer','Cashback','Investment','Lend'],budget:70000}; },
+    importCSV:       () => ({success:true, preview:[]}),
+    importXLS:       () => ({success:true, preview:[]}),
+    importHTML:      () => ({success:true, preview:[]}),
+    confirmImport:   () => ({imported: window._previewData ? window._previewData.length : 0}),
+    getCategoryDataForMonth: (month) => ({ categoryMap: STUB_DASH.categoryMap, accountMap: STUB_DASH.accountMap }),
+    getCategoryDataForYear: (year) => ({ categoryMap: STUB_DASH.categoryMap, accountMap: STUB_DASH.accountMap }),
+    getInvestmentTrend: () => ({
+      categories: ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','PPF & NPS','Other Investment'],
+      monthMap: {'2025-11':{'Mutual Fund':5000,'Stocks & Zerodha':3000},'2025-12':{'Mutual Fund':5000,'Fixed Deposit':10000},'2026-01':{'Mutual Fund':5000,'Stocks & Zerodha':5000,'PPF & NPS':2000},'2026-02':{'Mutual Fund':5000,'Stocks & Zerodha':2000},'2026-03':{'Mutual Fund':5000,'Fixed Deposit':5000,'Stocks & Zerodha':3000},'2026-04':{'Mutual Fund':5000,'Stocks & Zerodha':10000}}
+    }),
+  };
+  function makeChain(ok, err) {
+    const c = {
+      withSuccessHandler(fn){ return makeChain(fn, err); },
+      withFailureHandler(fn){ return makeChain(ok, fn); },
+    };
+    Object.keys(RESPONSES).forEach(m => {
+      c[m] = function(...args) {
+        setTimeout(() => { try{ ok && ok(RESPONSES[m](...args)); } catch(e){ err && err(e); } }, m==='addTransaction'?700:250);
+      };
+    });
+    return c;
+  }
+  window.google = { script: { run: makeChain(null,null) } };
+}
+// ── END STUB ───────────────────────────────────────────────────────────────
+
+// ── LAYOUT ────────────────────────────────────────────────────────────────
+function applyLayout() {
+  const w = screen.width / (window.devicePixelRatio || 1);
+  document.body.classList.toggle('is-desktop', w >= 700);
+}
+applyLayout();
+window.addEventListener('resize', applyLayout);
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let currentPage = 'dashboard', currentType = 'Expense';
+let cashbackOn = false, currentSource = '', currentFilter = 'All';
+let previewData = [], allTxs = [];
+let config = { accounts:[], categories:[], budget:0, categoryTypeMap:{} };
+let pieChart = null, trendChart = null;
+let chartDonut = null, chartTrend = null, chartAccount = null, chartInvestment = null;
+let chartTrendMonths = 6;
+
+const CATEGORY_ICONS = {
+  'Groceries':'🛒','Food Orders':'🛵','Eat Out':'🍽️','Cafe & Snacks':'☕','Fuel':'⛽',
+  'Transport (Uber/Auto)':'🚗','Medical & Health':'🏥','Pharmacy':'💊',
+  'Shopping (Clothing)':'👗','Shopping (General)':'🛍️','Electronics & Gadgets':'📱','Entertainment':'🎬',
+  'Gaming':'🎮','Travel & Holidays':'🧳','Flights':'✈️','Train & Metro':'🚆','Rent & Maintenance':'🏠',
+  'Bills & Utilities':'💡','Internet & Phone':'📶','Education & Courses':'📚',
+  'EMI & Loan':'💰','Fitness & Gym':'🏋️','Gifts & Donations':'🎁',
+  'Business & Work':'💼','Home Repair':'🔧',
+  'Subscriptions':'📺','Vehicle Maintenance & Repairs':'🔧',
+  'Cashback & Rewards':'🎁','Investment Returns':'💹','Loan Recovery':'🤝',
+  'Miscellaneous':'💸','Income':'💰','Transfer':'🔄',
+  'Investment':'💹','Lend':'🤝','Salary':'💰',
+  'Mutual Fund':'📈','Stocks & Zerodha':'📊','Fixed Deposit':'🏦',
+  'Plot & Property':'🏗️','PPF & NPS':'🛡️','Other Investment':'💼',
+  'Personal Lend':'🤝','Business Lend':'🤝',
+  'Refunds':'↩️','Freelance':'💻','Other Income':'💵',
+};
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const now = new Date();
+  const el = document.getElementById('header-date');
+  if (el) el.textContent = now.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('f-date').value = now.toISOString().split('T')[0];
+  google.script.run.withSuccessHandler(cfg => { config = cfg; _populateSelects(); }).getConfig();
+  loadDashboard();
+});
+
+function _populateSelects() {
+  document.getElementById('f-account').innerHTML =
+    config.accounts.map(a => `<option value="${a}">${a}</option>`).join('');
+  _filterCategoriesForType(currentType);
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  currentPage = page;
+  const order = ['dashboard','add','transactions','charts','import','settings'];
+  const pills  = document.querySelectorAll('.nav-pill');
+  const idx    = order.indexOf(page);
+  if (idx >= 0 && pills[idx]) pills[idx].classList.add('active');
+  const bnEl = document.getElementById('bn-' + page);
+  if (bnEl) bnEl.classList.add('active');
+  if (page === 'dashboard')    loadDashboard();
+  if (page === 'transactions') loadTransactions();
+  if (page === 'charts')       loadCharts();
+  if (page === 'settings')     loadSettings();
+}
+
+// ── TOAST ──────────────────────────────────────────────────────────────────
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast'+(isError?' error':'')+' show';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>

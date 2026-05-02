@@ -1,0 +1,363 @@
+<script>
+// ── IMPORT ────────────────────────────────────────────────────────────────
+function selectSource(src, btn) {
+  if (btn.classList.contains('soon')) return;
+  currentSource = src;
+  document.querySelectorAll('.source-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('pdf-password-wrap').style.display =
+    src.endsWith('_pdf') ? 'block' : 'none';
+}
+
+function handleFile(input) {
+  if (!currentSource) { showToast('Select a source first!', true); return; }
+  const file = input.files[0]; if (!file) return;
+  showToast('Reading file…');
+  const isXLS  = /\.(xls|xlsx)$/i.test(file.name);
+  const isHTML = /\.(html|htm)$/i.test(file.name);
+  const isPDF  = /\.pdf$/i.test(file.name);
+  const reader = new FileReader();
+  reader.onerror = () => showToast('Could not read file', true);
+
+  if (isPDF) {
+    const password = document.getElementById('pdf-password').value || '';
+    input.value = '';
+    showToast('Unlocking PDF…');
+    reader.onload = async e => {
+      try {
+        const typedArray = new Uint8Array(e.target.result);
+        const loadingTask = pdfjsLib.getDocument({ data: typedArray, password: password || undefined });
+        const pdf = await loadingTask.promise;
+        showToast('Reading ' + pdf.numPages + ' pages…');
+
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          fullText += content.items.map(item => item.str).join(' ') + '\n';
+        }
+
+        // Debug log — remove in production
+        console.log('SOURCE:', currentSource);
+        console.log('RAW TEXT:', fullText.substring(0, 2000));
+
+        let parsed = [];
+        if (currentSource === 'union_pdf')         parsed = _parseUnionBankPDF(fullText);
+        else if (currentSource === 'hdfc_bank_pdf')    parsed = _parseHDFCBankPDF(fullText);
+        else if (currentSource === 'hdfc_cc_pdf')      parsed = _parseHDFCCCPDF(fullText);
+        else if (currentSource === 'sapphiro_pdf')     parsed = _parseICICICCPDF(fullText, 'Sapphiro (ICICI)');
+        else if (currentSource === 'amazon_icici_pdf') parsed = _parseICICICCPDF(fullText, 'Amazon (ICICI)');
+
+        if (!parsed.length) { showToast('No transactions found. Check password or format.', true); return; }
+        previewData = parsed;
+        renderPreview(previewData);
+        showToast('Found ' + parsed.length + ' transactions!');
+      } catch (err) {
+        if (err.name === 'PasswordException') showToast('Wrong password!', true);
+        else showToast('PDF error: ' + err.message, true);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    return;
+  }
+
+  input.value = '';
+
+  if (isHTML) {
+    reader.onload = e => {
+      showToast('Processing BHIM statement…');
+      google.script.run
+        .withSuccessHandler(res => { if(!res?.success){showToast('Error: '+(res?.error||''),true);return;} if(!res.preview?.length){showToast('No transactions found',true);return;} previewData=res.preview; renderPreview(previewData); showToast('Found '+previewData.length+' transactions!'); })
+        .withFailureHandler(err => showToast('Failed: '+(err?.message||''),true))
+        .importHTML(e.target.result, currentSource);
+    };
+    reader.readAsText(file);
+  } else if (isXLS) {
+    reader.onload = e => {
+      showToast('Converting XLS… ~15s');
+      google.script.run
+        .withSuccessHandler(res => { if(!res?.success){showToast('Error: '+(res?.error||''),true);return;} if(!res.preview?.length){showToast('No transactions found',true);return;} previewData=res.preview; renderPreview(previewData); showToast('Found '+previewData.length+' transactions!'); })
+        .withFailureHandler(err => showToast('Failed: '+(err?.message||''),true))
+        .importXLS(e.target.result.split(',')[1], currentSource);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    reader.onload = e => {
+      showToast('Processing CSV…');
+      google.script.run
+        .withSuccessHandler(res => { if(!res?.success){showToast('Error: '+(res?.error||''),true);return;} previewData=res.preview; renderPreview(previewData); showToast('Found '+previewData.length+' transactions!'); })
+        .withFailureHandler(err => showToast('Failed: '+(err?.message||''),true))
+        .importCSV(e.target.result, currentSource);
+    };
+    reader.readAsText(file);
+  }
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  if (!currentSource) { showToast('Select a source first!', true); return; }
+  const file = e.dataTransfer.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    google.script.run
+      .withSuccessHandler(res => { if(!res.success){showToast('Error: '+res.error,true);return;} previewData=res.preview; renderPreview(previewData); })
+      .importCSV(ev.target.result, currentSource);
+  };
+  reader.readAsText(file);
+}
+
+function renderPreview(data) {
+  window._previewData = data;
+  document.getElementById('preview-count').textContent = data.length;
+  const cats = config.categories || [];
+  document.getElementById('preview-body').innerHTML = data.map((tx,i) =>
+    `<tr><td class="mono" style="font-size:11px">${tx.date}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${tx.description}</td><td class="mono">₹${parseFloat(tx.amount).toLocaleString('en-IN')}</td><td style="font-size:12px">${tx.type}</td><td><select class="cat-select" onchange="previewData[${i}].category=this.value">${cats.map(c=>`<option value="${c}" ${c===tx.category?'selected':''}>${c}</option>`).join('')}</select></td></tr>`
+  ).join('');
+  document.getElementById('import-preview').style.display = 'block';
+}
+
+function confirmImport() {
+  if (!previewData.length) return;
+  google.script.run.withSuccessHandler(res => {
+    showToast('Imported '+res.imported+' transactions!');
+    document.getElementById('import-preview').style.display = 'none';
+    previewData = [];
+  }).confirmImport(previewData);
+}
+
+// ── PDF PARSERS ────────────────────────────────────────────────────────────
+
+function _autoCategory(text) {
+  const t = text.toLowerCase();
+  const map = {
+    'swiggy':'Food Orders','zomato':'Food Orders',
+    'haldiram':'Eat Out','restaurant':'Eat Out','dhaba':'Eat Out','cafe':'Cafe & Snacks',
+    'blinkit':'Groceries','bigbasket':'Groceries','zepto':'Groceries',
+    'dmart':'Groceries','grocery':'Groceries',
+    'uber':'Transport (Uber/Auto)','ola':'Transport (Uber/Auto)','rapido':'Transport (Uber/Auto)',
+    'irctc':'Train & Metro','metro':'Train & Metro','dmrc':'Train & Metro','nmmc':'Train & Metro','flight':'Flights','airline':'Flights','indigo':'Flights','spicejet':'Flights','air india':'Flights','akasa':'Flights','vistara':'Flights','makemytrip':'Flights','goibibo':'Flights','cleartrip':'Flights',
+    'salary':'Income','nach/mut':'Mutual Fund','nach':'EMI & Loan','fin indian':'EMI & Loan','emi':'EMI & Loan',
+    'netflix':'Entertainment','hotstar':'Entertainment','spotify':'Entertainment',
+    'airtel':'Internet & Phone','jio':'Internet & Phone',
+    'amazon pay in e comm':'Shopping (Clothing)','flipkart':'Shopping (Clothing)',
+    'amazon pay in grocery':'Groceries','amazon pay grocery':'Groceries',
+    'amazon pay in flight':'Flights',
+    'electricity':'Bills & Utilities','petrol':'Fuel','fuel':'Fuel',
+    'bpcl':'Fuel','iocl':'Fuel','hp petrol':'Fuel',
+    'medical':'Medical & Health','pharmacy':'Pharmacy','hospital':'Medical & Health',
+    'gym':'Fitness & Gym','mut/':'Mutual Fund','zerodha':'Stocks & Zerodha','claude':'Education & Courses',
+    'openai':'Education & Courses','chatgpt':'Education & Courses',
+    'cashback':'Cashback & Rewards','refund':'Cashback & Rewards',
+    'payment':'Transfer','billpay':'Transfer','cc payment':'Transfer',
+    'hdfc':'Transfer','icici':'Transfer','axis':'Transfer','sbi':'Transfer'
+  };
+  for (const [kw, cat] of Object.entries(map)) {
+    if (t.includes(kw)) return cat;
+  }
+  return 'Miscellaneous';
+}
+
+// ── UNION BANK PDF ─────────────────────────────────────────────────────────
+function _parseUnionBankPDF(text) {
+  const results = [];
+  const normalized = text.replace(/[ \t]+/g, ' ').replace(/\r/g, '');
+  const datePattern = /\b(\d{2}[-\/]\d{2}[-\/]\d{4})\b/g;
+  const dateMatches = [...normalized.matchAll(datePattern)];
+  const txIdPattern = /^[A-Z]\d{6,}/;
+
+  dateMatches.forEach((match, idx) => {
+    const date = match[1].replace(/-/g, '/');
+    const start = match.index + match[0].length;
+    const end = idx + 1 < dateMatches.length ? dateMatches[idx+1].index : normalized.length;
+    const block = normalized.substring(start, end).trim();
+    if (!txIdPattern.test(block)) return;
+
+    const txId = block.split(' ')[0];
+    const amtPattern = /([\d,]+\.\d+)\s*\((Dr|Cr)\)/gi;
+    const amtMatches = [...block.matchAll(amtPattern)];
+    if (!amtMatches.length) return;
+
+    const txAmtMatch = amtMatches[0];
+    const txAmt = parseFloat(txAmtMatch[1].replace(/,/g, ''));
+    const drCr = txAmtMatch[2].toUpperCase();
+    if (!txAmt || txAmt <= 0) return;
+
+    const txIdEnd = block.indexOf(txId) + txId.length;
+    const amtStart = block.search(/([\d,]+\.\d{2})\s*\((Dr|Cr)\)/i);
+    let description = block.substring(txIdEnd, amtStart).trim().replace(/\s+/g, ' ');
+    if (!description) description = txId;
+
+    let friendly = description;
+    const upiDrCr = description.match(/\/(?:DR|CR)\/(.+?)(?:\/[A-Z]{4,}|$)/i);
+    if (upiDrCr) friendly = upiDrCr[1].replace(/\//g, ' ').trim();
+    else if (/^NACH\//i.test(description)) {
+      const p = description.split('/');
+      friendly = p[p.length-1].trim() || p[p.length-2].trim();
+    } else if (/^NEFT:/i.test(description)) {
+      friendly = description.replace(/^NEFT:/i,'').replace(/[A-Z]{4}\d{10,}.*$/,'').trim();
+    } else if (/^IMPS/i.test(description)) {
+      const p = description.split('/');
+      friendly = p[p.length-1].trim() || description;
+    }
+
+    const cat = _autoCategory(friendly + ' ' + description);
+    const INVEST_CATS = ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment'];
+    const type = drCr === 'CR' ? 'Income' : INVEST_CATS.includes(cat) ? 'Investment' : 'Expense';
+    results.push({
+      date, description: friendly, amount: txAmt,
+      type, account: 'Union Bank', category: cat,
+      notes: 'Ref: ' + txId
+    });
+  });
+  return results;
+}
+
+// ── HDFC BANK PDF ──────────────────────────────────────────────────────────
+function _parseHDFCBankPDF(text) {
+  const results = [];
+  const normalized = text.replace(/\r/g, '').replace(/[ \t]+/g, ' ');
+  const datePattern = /\b(\d{2}\/\d{2}\/\d{2})\b/g;
+  const dateMatches = [...normalized.matchAll(datePattern)];
+
+  dateMatches.forEach((match, idx) => {
+    const rawDate = match[1];
+    const [dd, mm, yy] = rawDate.split('/');
+    const date = `${dd}/${mm}/20${yy}`;
+
+    const start = match.index + match[0].length;
+    const end = idx + 1 < dateMatches.length ? dateMatches[idx+1].index : normalized.length;
+    const block = normalized.substring(start, end).trim();
+
+    if (!block || block.length < 5) return;
+    if (/opening|closing|statement|narration|date/i.test(block.substring(0, 30))) return;
+
+    const valueDateMatch = block.match(/\b\d{2}\/\d{2}\/\d{2}\b/);
+    let narrationEnd = block.length;
+    if (valueDateMatch) narrationEnd = block.indexOf(valueDateMatch[0]);
+
+    const narration = block.substring(0, narrationEnd).trim().replace(/\s+/g, ' ');
+
+    const afterValueDate = valueDateMatch
+      ? block.substring(block.indexOf(valueDateMatch[0]) + valueDateMatch[0].length)
+      : block;
+    const txAmts = [...afterValueDate.matchAll(/([\d,]+\.\d{2})/g)]
+      .map(m => parseFloat(m[0].replace(/,/g, '')));
+
+    if (txAmts.length < 2) return;
+
+    let withdrawal = 0, deposit = 0;
+    if (txAmts.length >= 3) {
+      withdrawal = txAmts[txAmts.length - 3] || 0;
+      deposit    = txAmts[txAmts.length - 2] || 0;
+    } else {
+      const amt = txAmts[0];
+      if (/salary|interest|credit/i.test(narration)) deposit = amt;
+      else withdrawal = amt;
+    }
+
+    const amount = withdrawal || deposit;
+    if (!amount || amount <= 0) return;
+    if (!narration || narration.length < 2) return;
+
+    results.push({
+      date, description: narration, amount,
+      type: deposit > 0 && !withdrawal ? 'Income' : 'Expense',
+      account: 'HDFC Bank',
+      category: _autoCategory(narration),
+      notes: 'PDF Import'
+    });
+  });
+  return results;
+}
+
+// ── HDFC CC PDF ────────────────────────────────────────────────────────────
+function _parseHDFCCCPDF(text) {
+  const results = [];
+  const normalized = text.replace(/\r/g, '').replace(/[ \t]+/g, ' ');
+  const datePattern = /\b(\d{2}\/\d{2}\/\d{4})\s*\|\s*\d{2}:\d{2}\b/g;
+  const dateMatches = [...normalized.matchAll(datePattern)];
+
+  dateMatches.forEach((match, idx) => {
+    const date = match[1];
+    const start = match.index + match[0].length;
+    const end = idx + 1 < dateMatches.length ? dateMatches[idx+1].index : normalized.length;
+    const block = normalized.substring(start, end).trim();
+    if (!block) return;
+
+    // Pattern: DESCRIPTION [+] C 3,848.00 l
+    // C = ₹ symbol as extracted by PDF.js, l = PI dot
+    const txMatch = block.match(/(\+)?\s*C\s*([\d,]+\.\d{2})\s*[lL]?\s/);
+    if (!txMatch) return;
+
+    const isCredit = !!txMatch[1];
+    const amount = parseFloat(txMatch[2].replace(/,/g, ''));
+    if (!amount || amount <= 0) return;
+
+    const matchIdx = block.indexOf(txMatch[0]);
+    let description = block.substring(0, matchIdx).replace(/\s+/g, ' ').trim();
+    description = description.replace(/\s+[lL]\s*$/, '').trim();
+    if (!description || description.length < 3) return;
+    if (/reward points|bonus points|programs|sr no\.|page \d/i.test(description)) return;
+
+    let type = 'Expense';
+    if (isCredit) type = 'Transfer';
+    else if (/cashback|reward|refund/i.test(description)) type = 'Cashback';
+
+    results.push({
+      date, description, amount, type,
+      account: 'Millennia (HDFC)',
+      category: _autoCategory(description),
+      notes: 'PDF Import'
+    });
+  });
+  return results;
+}
+
+// ── ICICI CC PDF (Sapphiro + Amazon ICICI — same format) ──────────────────
+function _parseICICICCPDF(text, accountName) {
+  const results = [];
+  const normalized = text.replace(/\r/g, '').replace(/[ \t]+/g, ' ');
+  const datePattern = /\b(\d{2}\/\d{2}\/\d{4})\b/g;
+  const dateMatches = [...normalized.matchAll(datePattern)];
+  const serNoPattern = /^\s*(\d{10,})\s+/;
+
+  dateMatches.forEach((match, idx) => {
+    const date = match[1];
+    const start = match.index + match[0].length;
+    const end = idx + 1 < dateMatches.length ? dateMatches[idx+1].index : normalized.length;
+    const block = normalized.substring(start, end).trim();
+    if (!serNoPattern.test(block)) return;
+
+    const serNoMatch = block.match(serNoPattern);
+    const serNo = serNoMatch[1];
+    const afterSerNo = block.substring(serNoMatch[0].length).trim();
+
+    const amtMatch = afterSerNo.match(/(-?[\d,]+\.\d{2})\s*$/)
+      || afterSerNo.match(/([\d,]+\.\d{2})(?:\s*Cr)?\s*$/i);
+    if (!amtMatch) return;
+
+    const isCredit = amtMatch[0].includes('-') || /cr/i.test(amtMatch[0]);
+    const amount = parseFloat(amtMatch[1].replace(/,/g, '').replace('-',''));
+    if (!amount || amount <= 0) return;
+
+    let descBlock = afterSerNo.substring(0, afterSerNo.lastIndexOf(amtMatch[0])).trim();
+    descBlock = descBlock.replace(/\s+\d{1,4}\s*$/, '');
+    descBlock = descBlock.replace(/\s+\d+\s+[A-Z]{3}\s*$/, '');
+    const description = descBlock.replace(/\s+/g, ' ').trim();
+    if (!description) return;
+
+    let type = 'Expense';
+    if (isCredit) type = 'Transfer';
+    else if (/cashback|reward|refund/i.test(description)) type = 'Cashback';
+
+    results.push({
+      date, description, amount, type,
+      account: accountName,
+      category: _autoCategory(description),
+      notes: 'Ref: ' + serNo
+    });
+  });
+  return results;
+}
+</script>

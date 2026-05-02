@@ -1,0 +1,85 @@
+<script>
+// ── TRANSACTIONS ──────────────────────────────────────────────────────────
+function loadTransactions() {
+  document.getElementById('tx-list-content').innerHTML =
+    '<div class="loader"><div class="spinner"></div>Loading…</div>';
+  google.script.run.withSuccessHandler(txs => {
+    allTxs = txs || [];
+    renderTransactions(allTxs, currentFilter);
+  }).getTransactions(200);
+}
+
+function filterTx(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll('.tx-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderTransactions(allTxs, type);
+}
+
+function parseDateStr(raw) {
+  if (!raw) return null;
+  if (typeof raw === 'number') { const d=new Date(Math.round((raw-25569)*86400*1000)); return isNaN(d)?null:d; }
+  const s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s))   { const [y,mo,dy]=s.split('T')[0].split('-'); return new Date(+y,+mo-1,+dy); }
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) { const [dy,mo,y]=s.split('/'); return new Date(+y,+mo-1,+dy); }
+  if (/^\d{2}\/\d{2}\/\d{2}$/.test(s)) { const [dy,mo,y]=s.split('/'); return new Date(2000+(+y),+mo-1,+dy); }
+  if (/^\d{2}-\d{2}-\d{4}$/.test(s))   { const [dy,mo,y]=s.split('-'); return new Date(+y,+mo-1,+dy); }
+  const d=new Date(s); return isNaN(d)?null:d;
+}
+function friendlyDate(raw) {
+  const d=parseDateStr(raw); if(!d) return raw||'';
+  const today=new Date(); today.setHours(0,0,0,0);
+  const dd=new Date(d); dd.setHours(0,0,0,0);
+  const diff=(today-dd)/86400000;
+  if(diff===0) return 'Today'; if(diff===1) return 'Yesterday';
+  return d.toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+}
+function dateDividerKey(raw) {
+  const d=parseDateStr(raw); if(!d) return raw||'';
+  const today=new Date(); today.setHours(0,0,0,0);
+  const dd=new Date(d); dd.setHours(0,0,0,0);
+  const diff=(today-dd)/86400000;
+  if(diff===0) return 'Today'; if(diff===1) return 'Yesterday';
+  return d.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short'});
+}
+
+function renderTransactions(txs, filter) {
+  const filtered = filter==='All' ? txs : txs.filter(t => t.type===filter);
+  if (!filtered || filtered.length===0) {
+    document.getElementById('tx-list-content').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No transactions yet</div></div>';
+    return;
+  }
+  const groups = {};
+  filtered.forEach(tx => { const key=dateDividerKey(tx.date); if(!groups[key]) groups[key]=[]; groups[key].push(tx); });
+  const sortedGroups = Object.entries(groups).sort((a, b) => {
+    const da = parseDateStr(a[1][0].date), db = parseDateStr(b[1][0].date);
+    return (db||0) - (da||0);
+  });
+  let html = '';
+  sortedGroups.forEach(([dateKey,items]) => {
+    html += `<div class="tx-date-divider">${dateKey}</div><div class="tx-list" style="box-shadow:var(--shadow-sm);border-radius:var(--radius-lg);margin-bottom:12px;overflow:hidden;">`;
+    items.forEach(tx => {
+      const icon = tx.type==='Income'     ? '💰'
+                 : tx.type==='Transfer'   ? '🔄'
+                 : tx.type==='Cashback'   ? '🎁'
+                 : tx.type==='Investment' ? '💹'
+                 : tx.type==='Lend'       ? '🤝'
+                 : (CATEGORY_ICONS[tx.category]||'💸');
+      const tc = tx.type.toLowerCase();
+      const ac = (tx.type==='Income'||tx.type==='Cashback') ? 'income'
+               : tx.type==='Transfer'   ? 'transfer'
+               : tx.type==='Investment' ? 'investment'
+               : tx.type==='Lend'       ? 'lend'
+               : 'expense';
+      const as = (tx.type==='Income'||tx.type==='Cashback') ? '+'
+               : tx.type==='Transfer'   ? '↔'
+               : tx.type==='Lend'       ? '→'
+               : '−';
+      html += `<div class="tx-item"><div class="tx-icon-wrap ${tc}">${icon}</div><div class="tx-info"><div class="tx-desc">${tx.description||tx.category}</div><div class="tx-meta">${friendlyDate(tx.date)} · ${tx.account||''}</div></div><div class="tx-right"><div class="tx-amount ${ac}">${as}₹${parseFloat(tx.amount).toLocaleString('en-IN')}</div><div class="tx-account">${tx.category||''}</div></div></div>`;
+    });
+    html += '</div>';
+  });
+  document.getElementById('tx-list-content').innerHTML = html;
+}
+</script>

@@ -1,0 +1,61 @@
+<script>
+// ── DASHBOARD ─────────────────────────────────────────────────────────────
+function loadDashboard() {
+  document.getElementById('dashboard-content').innerHTML =
+    '<div class="loader"><div class="spinner"></div>Loading dashboard…</div>';
+  google.script.run.withSuccessHandler(renderDashboard).getDashboardData();
+}
+
+function renderDashboard(d) {
+  const pct = d.percentUsed;
+  const remaining = d.budget - d.currentExpense;
+  const statusText = pct >= 100 ? '🔴 Over budget' : pct >= 80 ? '🟡 Running low' : '✅ On track';
+  const catEntries = Object.entries(d.categoryMap || {}).sort((a,b) => b[1]-a[1]).slice(0,5);
+  const maxCat = catEntries[0]?.[1] || 1;
+  const catBars = catEntries.map(([cat,amt]) =>
+    `<div class="cat-row"><div class="cat-row-top"><span class="cat-name">${CATEGORY_ICONS[cat]||'•'} ${cat}</span><span class="cat-amt">₹${amt.toLocaleString('en-IN')}</span></div><div class="cat-track"><div class="cat-fill" style="width:${Math.round((amt/maxCat)*100)}%"></div></div></div>`
+  ).join('');
+
+  document.getElementById('dashboard-content').innerHTML = `
+    <div class="hero-card">
+      <div class="hero-label">This Month's Spending</div>
+      <div class="hero-amount">₹${d.currentExpense.toLocaleString('en-IN')}</div>
+      <div class="hero-sub">of ₹${d.budget.toLocaleString('en-IN')} budget · ${pct}% used</div>
+      <div class="hero-progress"><div class="hero-progress-fill" style="width:${Math.min(pct,100)}%"></div></div>
+      <div class="hero-row">
+        <span class="hero-status">${statusText}</span>
+        <span>${remaining>=0?'₹'+remaining.toLocaleString('en-IN')+' left':'₹'+Math.abs(remaining).toLocaleString('en-IN')+' over'}</span>
+      </div>
+    </div>
+    <div class="page-body">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-icon-wrap green">💰</div><div class="stat-val green">₹${(d.totalIncome||0).toLocaleString('en-IN')}</div><div class="stat-label">Total Income</div></div>
+        <div class="stat-card"><div class="stat-icon-wrap yellow">🎁</div><div class="stat-val yellow">₹${(d.totalCashback||0).toLocaleString('en-IN')}</div><div class="stat-label">Cashback Saved</div></div>
+        <div class="stat-card"><div class="stat-icon-wrap accent">📊</div><div class="stat-val accent">₹${(d.netSpending||0).toLocaleString('en-IN')}</div><div class="stat-label">Net Spending</div></div>
+        <div class="stat-card"><div class="stat-icon-wrap ${remaining>=0?'green':'red'}">${remaining>=0?'💚':'⚠️'}</div><div class="stat-val ${remaining>=0?'green':'red'}">₹${Math.abs(remaining).toLocaleString('en-IN')}</div><div class="stat-label">${remaining>=0?'Remaining':'Over Budget'}</div></div>
+        <div class="stat-card"><div class="stat-icon-wrap teal">💹</div><div class="stat-val teal">₹${(d.totalInvested||0).toLocaleString('en-IN')}</div><div class="stat-label">Total Invested</div></div>
+        <div class="stat-card"><div class="stat-icon-wrap accent">🤝</div><div class="stat-val accent">₹${(d.totalLent||0).toLocaleString('en-IN')}</div><div class="stat-label">Money Lent</div></div>
+      </div>
+      <div class="section-label">Top Categories</div>
+      <div class="card">${catBars?`<div class="cat-list">${catBars}</div>`:'<div class="empty-state" style="padding:30px 20px"><div class="empty-text">No expenses this month yet</div></div>'}</div>
+      <div class="section-label">Category Breakdown</div>
+      <div class="card chart-card">${catEntries.length>0?'<canvas id="pieChart" height="240"></canvas>':'<div class="empty-state" style="padding:30px 20px"><div class="empty-text">No data yet</div></div>'}</div>
+    </div>`;
+
+  setTimeout(() => {
+    if (catEntries.length > 0) {
+      const pieEl = document.getElementById('pieChart');
+      if (pieEl) {
+        const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399'];
+        if (pieChart) pieChart.destroy();
+        pieChart = new Chart(pieEl.getContext('2d'), {
+          type:'doughnut',
+          data:{ labels:catEntries.map(([c])=>c), datasets:[{data:catEntries.map(([,v])=>v),backgroundColor:COLORS,borderWidth:0,hoverOffset:8}] },
+          options:{ responsive:true, maintainAspectRatio:true, cutout:'65%',
+            plugins:{ legend:{position:'bottom',labels:{color:'#888',font:{size:11},padding:12,boxWidth:10}}, tooltip:{callbacks:{label:ctx=>` ₹${ctx.raw.toLocaleString('en-IN')}`}} } }
+        });
+      }
+    }
+  }, 200);
+}
+</script>

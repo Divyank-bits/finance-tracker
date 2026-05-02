@@ -44,9 +44,14 @@ const TRANSACTION_TYPES = ['Expense', 'Income', 'Transfer', 'Cashback', 'Investm
 // ============================================================
 
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+  return HtmlService.createTemplateFromFile('Index')
+    .evaluate()
     .setTitle('Finance Tracker')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 // Handles file upload POST requests

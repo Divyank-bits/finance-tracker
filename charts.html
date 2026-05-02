@@ -1,0 +1,226 @@
+<script>
+// ── CHARTS ────────────────────────────────────────────────────────────────
+function loadCharts() {
+  document.getElementById('charts-content').innerHTML =
+    '<div class="loader"><div class="spinner"></div>Loading charts…</div>';
+  google.script.run.withSuccessHandler(dash => {
+    window._chartsData = dash;
+    google.script.run.withSuccessHandler(inv => renderCharts(dash, inv)).getInvestmentTrend();
+  }).getDashboardData();
+}
+
+function renderCharts(d, inv) {
+  const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399','#fb7185','#38bdf8'];
+  const months = Object.keys(d.monthMap || {}).sort().reverse();
+  const monthOptions = months.map(m => {
+    const [y, mo] = m.split('-');
+    const label = new Date(y, mo-1).toLocaleDateString('en-IN', {month:'long', year:'numeric'});
+    return `<option value="${m}">${label}</option>`;
+  }).join('');
+
+  const years = [...new Set(Object.keys(d.monthMap || {}).map(m => m.split('-')[0]))].sort().reverse();
+  const yearOptions = `<option value="">All</option>` + years.map(y => `<option value="${y}">${y}</option>`).join('');
+
+  document.getElementById('charts-content').innerHTML = `
+    <div class="chart-section">
+      <div class="chart-section-title">Spending by Category</div>
+      <div class="chart-wrap">
+        <div class="chart-filter-row">
+          <select class="chart-month-select" id="cat-month-select" onchange="setCategoryMonth(this.value)">${monthOptions}</select>
+          <select class="chart-month-select" id="cat-year-select" onchange="setCategoryYear(this.value)"><option value="">By Month</option>${yearOptions}</select>
+        </div>
+        <canvas id="chart-donut" height="260"></canvas>
+      </div>
+    </div>
+    <div class="chart-section">
+      <div class="chart-section-title">Monthly Trend</div>
+      <div class="chart-wrap">
+        <div class="chart-filter-row">
+          <button class="chart-filter-btn active" onclick="setTrendFilter(3,this)">3M</button>
+          <button class="chart-filter-btn" onclick="setTrendFilter(6,this)">6M</button>
+          <button class="chart-filter-btn" onclick="setTrendFilter(12,this)">12M</button>
+          <select class="chart-month-select" id="trend-year-select" onchange="setTrendYear(this.value)">${yearOptions}</select>
+        </div>
+        <canvas id="chart-trend" height="200"></canvas>
+      </div>
+    </div>
+    <div class="chart-section">
+      <div class="chart-section-title">Monthly Investment Breakdown</div>
+      <div class="chart-wrap">
+        <canvas id="chart-investment" height="220"></canvas>
+      </div>
+    </div>
+    <div class="chart-section">
+      <div class="chart-section-title">Account-wise Spending</div>
+      <div class="chart-wrap">
+        <canvas id="chart-account" height="220"></canvas>
+      </div>
+    </div>
+  `;
+
+  window._chartsData = d;
+
+  setTimeout(() => {
+    _buildDonutChart(d.categoryMap);
+    _buildTrendChart(d, chartTrendMonths, COLORS);
+    if (inv) _buildInvestmentChart(inv);
+
+    const accEntries = Object.entries(d.accountMap || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+    const accEl = document.getElementById('chart-account');
+    if (accEl && accEntries.length) {
+      if (chartAccount) chartAccount.destroy();
+      chartAccount = new Chart(accEl.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: accEntries.map(([a])=>a),
+          datasets: [{ data: accEntries.map(([,v])=>v), backgroundColor: COLORS, borderRadius: 6, borderSkipped: false }]
+        },
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: true,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ₹${ctx.raw.toLocaleString('en-IN')}` } } },
+          scales: {
+            x: { ticks: { color: '#999', font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } },
+            y: { ticks: { color: '#666', font: { size: 12 } }, grid: { display: false }, border: { display: false } }
+          }
+        }
+      });
+    }
+  }, 150);
+}
+
+function _buildInvestmentChart(inv) {
+  const INV_COLORS = { 'Mutual Fund':'#7c5cf6', 'Stocks & Zerodha':'#10b87a', 'Fixed Deposit':'#f5a623', 'Plot & Property':'#4f8ef7', 'PPF & NPS':'#ef4675', 'Other Investment':'#a78bfa' };
+  const months = Object.keys(inv.monthMap).sort().slice(-6);
+  const el = document.getElementById('chart-investment');
+  if (!el) return;
+  if (chartInvestment) chartInvestment.destroy();
+  const activeCats = inv.categories.filter(c => months.some(m => inv.monthMap[m]?.[c] > 0));
+  chartInvestment = new Chart(el.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: activeCats.map(cat => ({
+        label: cat,
+        data: months.map(m => inv.monthMap[m]?.[cat] || 0),
+        backgroundColor: INV_COLORS[cat] || '#888',
+        borderRadius: 4,
+        borderSkipped: false
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 }, padding: 12, boxWidth: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ₹${ctx.raw.toLocaleString('en-IN')}` } }
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: '#999', font: { size: 10 } }, grid: { display: false }, border: { display: false } },
+        y: { stacked: true, ticks: { color: '#999', font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function _buildDonutChart(categoryMap) {
+  const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399','#fb7185','#38bdf8'];
+  const catEntries = Object.entries(categoryMap || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const donutEl = document.getElementById('chart-donut');
+  if (!donutEl) return;
+  if (chartDonut) chartDonut.destroy();
+  if (!catEntries.length) {
+    donutEl.style.display = 'none';
+    const wrap = donutEl.parentElement;
+    if (!wrap.querySelector('.empty-state')) wrap.insertAdjacentHTML('beforeend','<div class="empty-state" style="padding:30px 0"><div class="empty-text">No expenses for this month</div></div>');
+    return;
+  }
+  donutEl.style.display = 'block';
+  donutEl.parentElement.querySelector('.empty-state')?.remove();
+  const total = catEntries.reduce((s,[,v])=>s+v, 0);
+  chartDonut = new Chart(donutEl.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: catEntries.map(([c])=>c),
+      datasets: [{ data: catEntries.map(([,v])=>v), backgroundColor: COLORS, borderWidth: 0, hoverOffset: 10 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '60%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 }, padding: 14, boxWidth: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ₹${ctx.raw.toLocaleString('en-IN')} (${Math.round(ctx.raw/total*100)}%)` } }
+      }
+    }
+  });
+}
+
+function setCategoryMonth(month) {
+  const yearSel = document.getElementById('cat-year-select');
+  if (yearSel) yearSel.value = '';
+  const donutEl = document.getElementById('chart-donut');
+  if (donutEl) donutEl.style.opacity = '0.4';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (donutEl) donutEl.style.opacity = '1';
+      _buildDonutChart(res.categoryMap);
+    })
+    .getCategoryDataForMonth(month);
+}
+
+function setCategoryYear(year) {
+  if (!year) return;
+  const monthSel = document.getElementById('cat-month-select');
+  if (monthSel) monthSel.value = '';
+  const donutEl = document.getElementById('chart-donut');
+  if (donutEl) donutEl.style.opacity = '0.4';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (donutEl) donutEl.style.opacity = '1';
+      _buildDonutChart(res.categoryMap);
+    })
+    .getCategoryDataForYear(year);
+}
+
+function _buildTrendChart(d, months, COLORS, year) {
+  const allMonths = Object.keys(d.monthMap || {}).sort();
+  let sliced;
+  if (year) {
+    sliced = allMonths.filter(m => m.startsWith(year));
+  } else {
+    sliced = allMonths.slice(-months);
+  }
+  const trendEl = document.getElementById('chart-trend');
+  if (!trendEl) return;
+  if (chartTrend) chartTrend.destroy();
+  chartTrend = new Chart(trendEl.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: sliced.length ? sliced : ['No data'],
+      datasets: [
+        { label: 'Expense', data: sliced.map(m=>d.monthMap[m]?.expense||0), backgroundColor: 'rgba(239,70,117,0.8)', borderRadius: 6, borderSkipped: false },
+        { label: 'Income',  data: sliced.map(m=>d.monthMap[m]?.income||0),  backgroundColor: 'rgba(16,184,122,0.8)',  borderRadius: 6, borderSkipped: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { labels: { color: '#888', font: { size: 11 }, boxWidth: 10 } } },
+      scales: {
+        x: { ticks: { color: '#999', font: { size: 10 } }, grid: { display: false }, border: { display: false } },
+        y: { ticks: { color: '#999', font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function setTrendFilter(n, btn) {
+  chartTrendMonths = n;
+  document.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const yearSel = document.getElementById('trend-year-select');
+  if (yearSel) yearSel.value = '';
+  if (window._chartsData) _buildTrendChart(window._chartsData, n, ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399']);
+}
+
+function setTrendYear(year) {
+  document.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
+  if (window._chartsData) _buildTrendChart(window._chartsData, chartTrendMonths, ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399'], year);
+}
+</script>

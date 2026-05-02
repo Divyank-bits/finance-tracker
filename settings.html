@@ -1,0 +1,64 @@
+<script>
+// ── SETTINGS ──────────────────────────────────────────────────────────────
+function loadSettings() {
+  google.script.run.withSuccessHandler(cfg => {
+    config = cfg;
+    if (cfg.budget) document.getElementById('s-budget').value = cfg.budget;
+    renderAccountsList();
+  }).getConfig();
+  google.script.run.withSuccessHandler(renderLendingList).getLendingData();
+}
+
+function saveBudget() {
+  const val = parseFloat(document.getElementById('s-budget').value);
+  if (!val || val <= 0) { showToast('Enter a valid budget amount', true); return; }
+  google.script.run
+    .withSuccessHandler(() => { showToast('Budget updated to ₹'+val.toLocaleString('en-IN')); showPage('dashboard'); })
+    .withFailureHandler(err => showToast('Failed: '+(err?.message||''), true))
+    .updateBudget(val);
+}
+
+function renderLendingList(data) {
+  const list = document.getElementById('lending-list');
+  if (!list) return;
+  if (!data || !data.length) {
+    list.innerHTML = '<div style="padding:16px 20px;font-size:13px;color:var(--muted)">No active lends. Use the 🤝 Lend type to track money you\'ve lent.</div>';
+    return;
+  }
+  list.innerHTML = data.map(l => {
+    const badgeClass = l.status === 'Paid' ? 'paid' : l.status === 'Partial' ? 'partial' : 'pending';
+    const amt = parseFloat(l.amount||0).toLocaleString('en-IN');
+    return `<div class="settings-row">
+      <div style="flex:1">
+        <div class="settings-row-label">🤝 ${l.person} — ₹${amt}</div>
+        <div class="settings-row-sub">${l.dateLent ? 'Lent: '+l.dateLent : ''} ${l.dueDate ? '· Due: '+l.dueDate : ''}</div>
+      </div>
+      <span class="lend-badge ${badgeClass}">${l.status||'Pending'}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderAccountsList() {
+  const list = document.getElementById('accounts-list');
+  if (!list) return;
+  if (!config.accounts || config.accounts.length === 0) {
+    list.innerHTML = '<div style="padding:16px 20px;font-size:13px;color:var(--muted)">No accounts yet. Add one below.</div>';
+    return;
+  }
+  list.innerHTML = config.accounts.map(a =>
+    `<div class="settings-row"><div><div class="settings-row-label">${a}</div></div></div>`
+  ).join('');
+}
+
+function addAccount() {
+  const val = document.getElementById('new-account').value.trim();
+  if (!val) { showToast('Enter an account name', true); return; }
+  google.script.run
+    .withSuccessHandler(cfg => {
+      config = cfg; document.getElementById('new-account').value = '';
+      _populateSelects(); renderAccountsList(); showToast('Account added!');
+    })
+    .withFailureHandler(err => showToast('Failed: '+(err?.message||''), true))
+    .addAccount(val);
+}
+</script>

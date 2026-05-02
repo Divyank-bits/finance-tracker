@@ -1,0 +1,80 @@
+<script>
+// ── ADD TRANSACTION ────────────────────────────────────────────────────────
+function setType(type, btn) {
+  currentType = type;
+  document.querySelectorAll('.type-tab').forEach(t =>
+    t.classList.remove('active','expense','income','transfer','cashback','investment','lend'));
+  btn.classList.add('active', type.toLowerCase());
+
+  document.getElementById('category-group').style.display =
+    type === 'Transfer' ? 'none' : 'block';
+  document.getElementById('lend-fields').style.display =
+    type === 'Lend' ? 'flex' : 'none';
+  document.getElementById('cashback-toggle-row').style.display =
+    (type === 'Investment' || type === 'Lend') ? 'none' : 'flex';
+
+  _filterCategoriesForType(type);
+}
+
+function _filterCategoriesForType(type) {
+  const filtered = config.categories.filter(c =>
+    (config.categoryTypeMap[c] || 'Expense') === type
+  );
+  const toShow = filtered.length ? filtered : config.categories;
+  document.getElementById('f-category').innerHTML =
+    toShow.map(c => `<option value="${c}">${CATEGORY_ICONS[c]||'•'} ${c}</option>`).join('');
+}
+
+function toggleCashback() {
+  cashbackOn = !cashbackOn;
+  document.getElementById('cb-toggle').classList.toggle('on', cashbackOn);
+  document.getElementById('cashback-fields').style.display = cashbackOn ? 'block' : 'none';
+}
+
+function submitTransaction() {
+  const amount = parseFloat(document.getElementById('f-amount').value);
+  if (!amount || amount <= 0) { showToast('Enter a valid amount', true); return; }
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const data = {
+    date: document.getElementById('f-date').value,
+    type: currentType,
+    category: document.getElementById('f-category').value,
+    amount,
+    account: document.getElementById('f-account').value,
+    description: document.getElementById('f-desc').value,
+    notes: document.getElementById('f-notes').value,
+    isCashback: cashbackOn,
+    cashbackAmount: cashbackOn ? parseFloat(document.getElementById('f-cashback-amt').value)||0 : 0
+  };
+
+  google.script.run
+    .withSuccessHandler(res => {
+      btn.disabled = false; btn.textContent = 'Add Transaction';
+      if (res.success) {
+        showToast('Transaction added!');
+        ['f-amount','f-desc','f-notes','f-lend-person','f-lend-due'].forEach(id => {
+          const el = document.getElementById(id); if(el) el.value = '';
+        });
+        if (cashbackOn) { toggleCashback(); document.getElementById('f-cashback-amt').value = ''; }
+
+        if (currentType === 'Lend') {
+          const person = document.getElementById('f-lend-person').value.trim();
+          const dueDate = document.getElementById('f-lend-due').value;
+          if (person) {
+            google.script.run.addLendingEntry({
+              linkedTxId: res.id, person, amount: data.amount,
+              date: data.date, dueDate, notes: data.notes
+            });
+          }
+        }
+      } else showToast('Error: ' + res.error, true);
+    })
+    .withFailureHandler(err => {
+      btn.disabled=false; btn.textContent='Add Transaction';
+      showToast('Failed: '+(err?.message||''), true);
+    })
+    .addTransaction(data);
+}
+</script>
