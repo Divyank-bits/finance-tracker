@@ -408,7 +408,7 @@ function _parseAmazonPayPDF(text) {
     } else if (/^refund from/i.test(desc)) {
       type = 'Recover'; category = 'Refunds';
     } else if (/^released from/i.test(desc)) {
-      type = 'Recover'; category = 'Refunds';
+      continue; // strikethrough in UI = cancelled auth hold, skip
     } else if (/^added money/i.test(desc)) {
       type = 'Transfer'; category = 'Transfer';
     } else if (/fastag|toll deduction/i.test(desc)) {
