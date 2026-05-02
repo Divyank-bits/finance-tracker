@@ -64,6 +64,14 @@
     <div><label class="form-label">Description</label><input class="form-input" id="f-desc" type="text" placeholder="e.g. Swiggy dinner"/></div>
     <div><label class="form-label">Notes (optional)</label><input class="form-input" id="f-notes" type="text" placeholder="Any additional notes"/></div>
 
+    <!-- Recover/Lend Recovery — open lend picker -->
+    <div id="lend-recovery-group" style="display:none">
+      <label class="form-label">Link to open lend (optional)</label>
+      <select class="form-select" id="f-open-lend" onchange="onOpenLendSelect(this.value)">
+        <option value="">— select person —</option>
+      </select>
+    </div>
+
     <!-- Lend-specific fields -->
     <div id="lend-fields" style="display:none;flex-direction:column;gap:14px;">
       <div><label class="form-label">Person Name</label><input class="form-input" id="f-lend-person" type="text" placeholder="e.g. Rahul"/></div>

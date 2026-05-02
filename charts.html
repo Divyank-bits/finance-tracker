@@ -32,12 +32,12 @@ function _makeFilterRow(prefix, onNmCb, onMonthCb, onYearCb, monthOpts, yearOpts
 }
 
 function renderCharts(d, inv) {
-  const allMonthKeys = Object.keys(d.monthMap || {}).sort().reverse();
-  const monthOpts = allMonthKeys.map(m => {
-    const [y, mo] = m.split('-');
-    const label = new Date(y, mo-1).toLocaleDateString('en-IN', {month:'short', year:'numeric'});
-    return `<option value="${m}">${label}</option>`;
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthOpts = MONTH_NAMES.map((name, i) => {
+    const val = String(i + 1).padStart(2, '0');
+    return `<option value="${val}">${name}</option>`;
   }).join('');
+  const allMonthKeys = Object.keys(d.monthMap || {}).sort().reverse();
   const years = [...new Set(allMonthKeys.map(m => m.split('-')[0]))].sort().reverse();
   const yearOpts = years.map(y => `<option value="${y}">${y}</option>`).join('');
 
@@ -46,7 +46,7 @@ function renderCharts(d, inv) {
       <div class="chart-section-title">Spending by Category</div>
       <div class="chart-wrap">
         ${_makeFilterRow('cat','_onNmFilter','_onMonthFilter','_onYearFilter', monthOpts, yearOpts, 0)}
-        <canvas id="chart-donut" height="260"></canvas>
+        <div id="chart-donut"></div>
       </div>
     </div>
     <div class="chart-section">
@@ -106,8 +106,6 @@ function _onMonthFilter(prefix) {
 function _onYearFilter(prefix) {
   const row = document.getElementById(prefix+'-yr').closest('.chart-filter-row');
   row.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
-  // clear month when year changes
-  document.getElementById(prefix+'-mo').value = '';
   _applyFilter(prefix);
 }
 
@@ -122,8 +120,9 @@ function _applyFilter(prefix, nmOverride) {
   // Determine filter string: YYYY-MM > YYYY > nMonths > all
   let filter = '';
   let nMonths = nmOverride || 0;
-  if (mo)      { filter = mo; nMonths = 0; }
-  else if (yr) { filter = yr; nMonths = 0; }
+  if (mo && yr)  { filter = `${yr}-${mo}`; nMonths = 0; }
+  else if (mo)   { filter = `${new Date().getFullYear()}-${mo}`; nMonths = 0; }
+  else if (yr)   { filter = yr; nMonths = 0; }
 
   if (prefix === 'cat')   _loadCatChart(filter, nMonths);
   else if (prefix === 'trend') _loadTrendChart(filter, nMonths);
@@ -152,32 +151,29 @@ function _loadCatChart(filter, nMonths) {
 function _buildDonutChart(categoryMap) {
   const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399','#fb7185','#38bdf8'];
   const catEntries = Object.entries(categoryMap || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  const donutEl = document.getElementById('chart-donut');
-  if (!donutEl) return;
-  if (chartDonut) chartDonut.destroy();
+  const el = document.getElementById('chart-donut');
+  if (!el) return;
   if (!catEntries.length) {
-    donutEl.style.display = 'none';
-    const wrap = donutEl.parentElement;
-    if (!wrap.querySelector('.empty-state')) wrap.insertAdjacentHTML('beforeend','<div class="empty-state" style="padding:30px 0"><div class="empty-text">No expenses for this period</div></div>');
+    el.innerHTML = '<div class="empty-state" style="padding:30px 0"><div class="empty-text">No expenses for this period</div></div>';
     return;
   }
-  donutEl.style.display = 'block';
-  donutEl.parentElement.querySelector('.empty-state')?.remove();
   const total = catEntries.reduce((s,[,v])=>s+v, 0);
-  chartDonut = new Chart(donutEl.getContext('2d'), {
-    type: 'doughnut',
-    data: {
-      labels: catEntries.map(([c])=>c),
-      datasets: [{ data: catEntries.map(([,v])=>v), backgroundColor: COLORS, borderWidth: 0, hoverOffset: 10 }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: true, cutout: '60%',
-      plugins: {
-        legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 }, padding: 14, boxWidth: 10 } },
-        tooltip: { callbacks: { label: ctx => ` ₹${ctx.raw.toLocaleString('en-IN')} (${Math.round(ctx.raw/total*100)}%)` } }
-      }
-    }
-  });
+  const rows = catEntries.map(([cat, amt], i) => {
+    const pct = Math.round(amt / total * 100);
+    const color = COLORS[i % COLORS.length];
+    return `
+      <div class="cat-bar-row">
+        <div class="cat-bar-name">${cat}</div>
+        <div class="cat-bar-track">
+          <div class="cat-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="cat-bar-amt">₹${amt.toLocaleString('en-IN')}</div>
+        <div class="cat-bar-pct">${pct}%</div>
+      </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="cat-bar-total">Total ₹${total.toLocaleString('en-IN')}</div>
+    ${rows}`;
 }
 
 // ── MONTHLY TREND ─────────────────────────────────────────────────────────
@@ -206,7 +202,7 @@ function _buildTrendChart(sliced, d) {
   chartTrend = new Chart(trendEl.getContext('2d'), {
     type: 'bar',
     data: {
-      labels: sliced.length ? sliced : ['No data'],
+      labels: sliced.length ? sliced.map(_fmtMonth) : ['No data'],
       datasets: [
         { label: 'Expense', data: sliced.map(m=>d.monthMap[m]?.expense||0), backgroundColor: 'rgba(239,70,117,0.8)', borderRadius: 6, borderSkipped: false },
         { label: 'Income',  data: sliced.map(m=>d.monthMap[m]?.income||0),  backgroundColor: 'rgba(16,184,122,0.8)',  borderRadius: 6, borderSkipped: false }
@@ -252,7 +248,7 @@ function _buildInvestmentChart(inv, months) {
   chartInvestment = new Chart(el.getContext('2d'), {
     type: 'bar',
     data: {
-      labels: months,
+      labels: months.map(_fmtMonth),
       datasets: activeCats.map(cat => ({
         label: cat,
         data: months.map(m => inv.monthMap[m]?.[cat] || 0),
@@ -313,6 +309,11 @@ function _buildAccountChart(accountMap) {
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────
+
+function _fmtMonth(m) {
+  const [y, mo] = m.split('-');
+  return new Date(+y, +mo-1).toLocaleDateString('en-IN', {month:'short', year:'2-digit'});
+}
 
 function _nMonthsCutoff(n) {
   // returns 'YYYY-MM' of the start month (inclusive) for last N months

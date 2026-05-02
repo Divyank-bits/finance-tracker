@@ -3,7 +3,7 @@
 function setType(type, btn) {
   currentType = type;
   document.querySelectorAll('.type-tab').forEach(t =>
-    t.classList.remove('active','expense','income','transfer','cashback','investment','lend'));
+    t.classList.remove('active','expense','income','transfer','cashback','investment','lend','recover'));
   btn.classList.add('active', type.toLowerCase());
 
   document.getElementById('category-group').style.display =
@@ -14,6 +14,34 @@ function setType(type, btn) {
     (type === 'Investment' || type === 'Lend') ? 'none' : 'flex';
 
   _filterCategoriesForType(type);
+
+  if (type === 'Recover') _loadOpenLendPicker();
+  else document.getElementById('lend-recovery-group').style.display = 'none';
+}
+
+let _openLends = [];
+
+function _loadOpenLendPicker() {
+  const group = document.getElementById('lend-recovery-group');
+  const sel = document.getElementById('f-open-lend');
+  sel.innerHTML = '<option value="">Loading…</option>';
+  group.style.display = 'block';
+  google.script.run.withSuccessHandler(lends => {
+    _openLends = lends || [];
+    sel.innerHTML = '<option value="">— select person —</option>' +
+      lends.map(l => `<option value="${l.id}">${l.description} — ₹${parseFloat(l.amount).toLocaleString('en-IN')} (${l.date})</option>`).join('');
+    // only show if there are open lends
+    group.style.display = lends.length ? 'block' : 'none';
+  }).getOpenLends();
+}
+
+function onOpenLendSelect(id) {
+  if (!id) return;
+  const lend = _openLends.find(l => l.id === id);
+  if (!lend) return;
+  document.getElementById('f-amount').value = lend.amount;
+  document.getElementById('f-desc').value = lend.description;
+  document.getElementById('f-account').value = lend.account || document.getElementById('f-account').value;
 }
 
 function _filterCategoriesForType(type) {
@@ -37,6 +65,7 @@ function submitTransaction() {
   const btn = document.getElementById('submit-btn');
   btn.disabled = true; btn.textContent = 'Saving…';
 
+  const linkedLendId = document.getElementById('f-open-lend')?.value || '';
   const data = {
     date: document.getElementById('f-date').value,
     type: currentType,
@@ -46,7 +75,8 @@ function submitTransaction() {
     description: document.getElementById('f-desc').value,
     notes: document.getElementById('f-notes').value,
     isCashback: cashbackOn,
-    cashbackAmount: cashbackOn ? parseFloat(document.getElementById('f-cashback-amt').value)||0 : 0
+    cashbackAmount: cashbackOn ? parseFloat(document.getElementById('f-cashback-amt').value)||0 : 0,
+    linkedTxId: linkedLendId
   };
 
   google.script.run
@@ -54,7 +84,7 @@ function submitTransaction() {
       btn.disabled = false; btn.textContent = 'Add Transaction';
       if (res.success) {
         showToast('Transaction added!');
-        ['f-amount','f-desc','f-notes','f-lend-person','f-lend-due'].forEach(id => {
+        ['f-amount','f-desc','f-notes','f-lend-person','f-lend-due','f-open-lend'].forEach(id => {
           const el = document.getElementById(id); if(el) el.value = '';
         });
         if (cashbackOn) { toggleCashback(); document.getElementById('f-cashback-amt').value = ''; }

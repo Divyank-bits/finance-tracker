@@ -64,6 +64,7 @@ if (typeof google === 'undefined') {
     getTransactions: () => STUB_TXS,
     getTransactionsByMonth: (month) => month ? STUB_TXS.filter(t => (t.month||'').startsWith(month)) : STUB_TXS,
     getLendingData:  () => STUB_LENDING,
+    getOpenLends:    () => STUB_LENDING.filter(l => l.status !== 'Recovered').map(l => ({id: 'TX00001', date: l.dateLent, description: l.person, amount: l.amount, account: 'HDFC Bank'})),
     addTransaction:  () => ({success:true, id:'TX'+Date.now()}),
     addLendingEntry: () => ({success:true}),
     updateBudget:    () => ({}),

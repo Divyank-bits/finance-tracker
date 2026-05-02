@@ -365,6 +365,28 @@ function getTransactions(limit) {
   }
 }
 
+function getOpenLends() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+  const data = sh.getRange(2, 1, lastRow - 1, 13).getValues();
+  // Collect all linkedTxIds from Recover/Lend Recovery transactions
+  const recoveredIds = new Set(
+    data.filter(r => r[2] === 'Recover' && r[3] === 'Lend Recovery' && r[10])
+        .map(r => String(r[10]))
+  );
+  // Return Lend transactions not yet recovered
+  return data
+    .filter(r => r[2] === 'Lend' && r[0] && !recoveredIds.has(String(r[0])))
+    .map(r => {
+      let dateStr = '';
+      try { dateStr = Utilities.formatDate(_parseDate(r[1]), 'Asia/Kolkata', 'yyyy-MM-dd'); }
+      catch(e) { dateStr = String(r[1] || ''); }
+      return { id: r[0], date: dateStr, description: r[6], amount: r[4], account: r[5] };
+    });
+}
+
 function getTransactionsByMonth(month) {
   // month = 'YYYY-MM', 'YYYY' (year only), or '' for recent 200
   if (!month) return getTransactions(200);
