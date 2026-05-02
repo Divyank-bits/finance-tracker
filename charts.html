@@ -47,12 +47,19 @@ function renderCharts(d, inv) {
     <div class="chart-section">
       <div class="chart-section-title">Monthly Investment Breakdown</div>
       <div class="chart-wrap">
+        <div class="chart-filter-row">
+          <select class="chart-month-select" id="inv-year-select" onchange="setInvYear(this.value)">${yearOptions}</select>
+        </div>
         <canvas id="chart-investment" height="220"></canvas>
       </div>
     </div>
     <div class="chart-section">
       <div class="chart-section-title">Account-wise Spending</div>
       <div class="chart-wrap">
+        <div class="chart-filter-row">
+          <select class="chart-month-select" id="acc-month-select" onchange="setAccMonth(this.value)">${monthOptions}</select>
+          <select class="chart-month-select" id="acc-year-select" onchange="setAccYear(this.value)"><option value="">All</option>${yearOptions}</select>
+        </div>
         <canvas id="chart-account" height="220"></canvas>
       </div>
     </div>
@@ -65,26 +72,7 @@ function renderCharts(d, inv) {
     _buildTrendChart(d, chartTrendMonths, COLORS);
     if (inv) _buildInvestmentChart(inv);
 
-    const accEntries = Object.entries(d.accountMap || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-    const accEl = document.getElementById('chart-account');
-    if (accEl && accEntries.length) {
-      if (chartAccount) chartAccount.destroy();
-      chartAccount = new Chart(accEl.getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels: accEntries.map(([a])=>a),
-          datasets: [{ data: accEntries.map(([,v])=>v), backgroundColor: COLORS, borderRadius: 6, borderSkipped: false }]
-        },
-        options: {
-          indexAxis: 'y', responsive: true, maintainAspectRatio: true,
-          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ₹${ctx.raw.toLocaleString('en-IN')}` } } },
-          scales: {
-            x: { ticks: { color: '#999', font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } },
-            y: { ticks: { color: '#666', font: { size: 12 } }, grid: { display: false }, border: { display: false } }
-          }
-        }
-      });
-    }
+    _buildAccountChart(d.accountMap);
   }, 150);
 }
 
@@ -222,5 +210,94 @@ function setTrendFilter(n, btn) {
 function setTrendYear(year) {
   document.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
   if (window._chartsData) _buildTrendChart(window._chartsData, chartTrendMonths, ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399'], year);
+}
+
+function _buildAccountChart(accountMap) {
+  const COLORS = ['#7c5cf6','#ef4675','#10b87a','#f5a623','#4f8ef7','#f97316','#a78bfa','#34d399','#fb7185','#38bdf8'];
+  const accEntries = Object.entries(accountMap || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const accEl = document.getElementById('chart-account');
+  if (!accEl) return;
+  if (chartAccount) chartAccount.destroy();
+  if (!accEntries.length) return;
+  chartAccount = new Chart(accEl.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: accEntries.map(([a])=>a),
+      datasets: [{ data: accEntries.map(([,v])=>v), backgroundColor: COLORS, borderRadius: 6, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ₹${ctx.raw.toLocaleString('en-IN')}` } } },
+      scales: {
+        x: { ticks: { color: '#999', font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } },
+        y: { ticks: { color: '#666', font: { size: 12 } }, grid: { display: false }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function setInvYear(year) {
+  const el = document.getElementById('chart-investment');
+  if (el) el.style.opacity = '0.4';
+  google.script.run.withSuccessHandler(inv => {
+    if (el) el.style.opacity = '1';
+    _buildInvestmentChartForYear(inv, year);
+  }).getInvestmentTrend();
+}
+
+function _buildInvestmentChartForYear(inv, year) {
+  const INV_COLORS = { 'Mutual Fund':'#7c5cf6', 'Stocks & Zerodha':'#10b87a', 'Fixed Deposit':'#f5a623', 'Plot & Property':'#4f8ef7', 'PPF & NPS':'#ef4675', 'Other Investment':'#a78bfa' };
+  const allMonths = Object.keys(inv.monthMap).sort();
+  const months = year ? allMonths.filter(m => m.startsWith(year)) : allMonths.slice(-6);
+  const el = document.getElementById('chart-investment');
+  if (!el) return;
+  if (chartInvestment) chartInvestment.destroy();
+  const activeCats = inv.categories.filter(c => months.some(m => inv.monthMap[m]?.[c] > 0));
+  chartInvestment = new Chart(el.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: activeCats.map(cat => ({
+        label: cat,
+        data: months.map(m => inv.monthMap[m]?.[cat] || 0),
+        backgroundColor: INV_COLORS[cat] || '#888',
+        borderRadius: 4, borderSkipped: false
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 }, padding: 12, boxWidth: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ₹${ctx.raw.toLocaleString('en-IN')}` } }
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: '#999', font: { size: 10 } }, grid: { display: false }, border: { display: false } },
+        y: { stacked: true, ticks: { color: '#999', font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function setAccMonth(month) {
+  const yearSel = document.getElementById('acc-year-select');
+  const year = yearSel ? yearSel.value : '';
+  const filter = month && year ? `${year}-${month}` : month ? `${new Date().getFullYear()}-${month}` : year || '';
+  _fetchAndBuildAccountChart(filter);
+}
+
+function setAccYear(year) {
+  const monthSel = document.getElementById('acc-month-select');
+  const month = monthSel ? monthSel.value : '';
+  const filter = year && month ? `${year}-${month}` : year || '';
+  _fetchAndBuildAccountChart(filter);
+}
+
+function _fetchAndBuildAccountChart(filter) {
+  const el = document.getElementById('chart-account');
+  if (el) el.style.opacity = '0.4';
+  google.script.run.withSuccessHandler(res => {
+    if (el) el.style.opacity = '1';
+    _buildAccountChart(res.accountMap);
+  }).getAccountDataForPeriod(filter);
 }
 </script>

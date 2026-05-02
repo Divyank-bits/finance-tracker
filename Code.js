@@ -366,8 +366,9 @@ function getTransactions(limit) {
 }
 
 function getTransactionsByMonth(month) {
-  // month = 'YYYY-MM' or '' for recent 200
+  // month = 'YYYY-MM', 'YYYY' (year only), or '' for recent 200
   if (!month) return getTransactions(200);
+  const isYearOnly = /^\d{4}$/.test(month);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
   const lastRow = sh.getLastRow();
@@ -382,7 +383,8 @@ function getTransactionsByMonth(month) {
     } catch(e) {
       txMonth = String(r[11] || '').substring(0, 7);
     }
-    if (txMonth === month) {
+    const matches = isYearOnly ? txMonth.startsWith(month) : txMonth === month;
+    if (matches) {
       let dateStr = '';
       try {
         const d = _parseDate(r[1]);
@@ -511,6 +513,33 @@ function getCategoryDataForMonth(month) {
     });
   }
   return { categoryMap, accountMap };
+}
+
+function getAccountDataForPeriod(filter) {
+  // filter = 'YYYY-MM', 'YYYY', or '' for all time
+  const isYearOnly = /^\d{4}$/.test(filter);
+  const isMonth    = /^\d{4}-\d{2}$/.test(filter);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  const lastRow = sh.getLastRow();
+  const accountMap = {};
+  if (lastRow >= 2) {
+    const data = sh.getRange(2, 1, lastRow - 1, 13).getValues();
+    data.forEach(r => {
+      if (r[2] !== 'Expense') return;
+      const amount = parseFloat(r[4]) || 0;
+      const acc = r[5];
+      let txMonth = '';
+      try {
+        const parsedDate = _parseDate(r[1]);
+        if (parsedDate && parsedDate.getFullYear() > 1971)
+          txMonth = Utilities.formatDate(parsedDate, 'Asia/Kolkata', 'yyyy-MM');
+      } catch(e) { txMonth = String(r[11] || '').substring(0, 7); }
+      const matches = !filter || (isYearOnly ? txMonth.startsWith(filter) : isMonth ? txMonth === filter : true);
+      if (matches) accountMap[acc] = (accountMap[acc] || 0) + amount;
+    });
+  }
+  return { accountMap };
 }
 
 function getInvestmentTrend() {

@@ -1,10 +1,41 @@
 <script>
 // ── TRANSACTIONS ──────────────────────────────────────────────────────────
+function _initTxSelects() {
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth() + 1;
+
+  const monthSel = document.getElementById('tx-month-sel');
+  const yearSel  = document.getElementById('tx-year-sel');
+  if (!monthSel || !yearSel) return;
+
+  const monthNames = ['All','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  monthSel.innerHTML = monthNames.map((m, i) =>
+    `<option value="${i === 0 ? '' : String(i).padStart(2,'0')}" ${i === curMonth ? 'selected' : ''}>${m}</option>`
+  ).join('');
+
+  yearSel.innerHTML = `<option value="">All</option>`;
+  for (let y = curYear; y >= 2022; y--) {
+    yearSel.innerHTML += `<option value="${y}" ${y === curYear ? 'selected' : ''}>${y}</option>`;
+  }
+}
+
+function onTxMonthChange() {
+  const month = document.getElementById('tx-month-sel')?.value;
+  const year  = document.getElementById('tx-year-sel')?.value;
+  let filter = '';
+  if (year && month) filter = `${year}-${month}`;
+  else if (year)     filter = year;
+  else if (month)    filter = `${new Date().getFullYear()}-${month}`;
+  loadTxForMonth(filter);
+}
+
 function loadTransactions() {
   document.getElementById('tx-list-content').innerHTML =
     '<div class="loader"><div class="spinner"></div>Loading…</div>';
-  const monthSel = document.getElementById('tx-month');
-  const month = monthSel ? monthSel.value : '';
+  _initTxSelects();
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   google.script.run.withSuccessHandler(txs => {
     allTxs = txs || [];
     applyTxFilters();
