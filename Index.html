@@ -43,6 +43,7 @@
     <button class="type-tab cashback"          onclick="setType('Cashback',this)">🎁 Cashback</button>
     <button class="type-tab investment"        onclick="setType('Investment',this)">💹 Invest</button>
     <button class="type-tab lend"              onclick="setType('Lend',this)">🤝 Lend</button>
+    <button class="type-tab recover"           onclick="setType('Recover',this)">↩️ Recover</button>
   </div>
   <div class="amount-hero">
     <div class="amount-hero-label">Amount</div>
@@ -96,6 +97,7 @@
     <button class="tx-chip" onclick="filterTx('Cashback',this)">Cashback</button>
     <button class="tx-chip" onclick="filterTx('Investment',this)">Investments</button>
     <button class="tx-chip" onclick="filterTx('Lend',this)">Lends</button>
+    <button class="tx-chip" onclick="filterTx('Recover',this)">Recovers</button>
   </div>
   <div class="page-body">
     <div id="tx-summary-bar"></div>
@@ -122,7 +124,7 @@
         <button class="source-btn" onclick="selectSource('icici_cc',this)">💳 Sapphiro XLS</button>
         <button class="source-btn" onclick="selectSource('amazon_icici',this)">💳 Amazon ICICI XLS</button>
         <button class="source-btn soon" title="Coming soon">📱 Google Pay</button>
-        <button class="source-btn soon" title="Coming soon">🛒 Amazon Pay</button>
+        <button class="source-btn" onclick="selectSource('amazon_pay_pdf',this)">🛒 Amazon Pay PDF</button>
       </div>
       <div id="pdf-password-wrap" style="display:none;margin-bottom:12px;">
         <label class="form-label">PDF Password</label>
@@ -157,7 +159,8 @@
         <div class="how-to-row"><span class="how-to-bank">HDFC Bank</span>NetBanking → Accounts → Statement → Download PDF or Excel</div>
         <div class="how-to-row"><span class="how-to-bank">Sapphiro / Amazon ICICI CC</span>iMobile → Cards → Statement → Download PDF or XLS</div>
         <div class="how-to-row"><span class="how-to-bank">Millennia HDFC CC</span>NetBanking → Cards → Statement → Download PDF</div>
-        <div class="how-to-row"><span class="how-to-bank">Google Pay / Amazon Pay</span>Coming soon — add manually for now</div>
+        <div class="how-to-row"><span class="how-to-bank">Amazon Pay PDF</span>Open pay.amazon.in → Your Transactions → Ctrl+P → Save as PDF</div>
+        <div class="how-to-row"><span class="how-to-bank">Google Pay</span>Coming soon — add manually for now</div>
       </div>
     </div>
   </div>

@@ -5,12 +5,12 @@
 // ── PREVIEW STUB ───────────────────────────────────────────────────────────
 if (typeof google === 'undefined') {
   const STUB_CATS = [
-    'Groceries','Food Orders','Eat Out','Cafe & Snacks','Fuel','Transport (Uber/Auto)',
+    'Groceries','Food Orders','Eat Out','Cafe & Snacks','Fuel & Tolls','Transport (Uber/Auto)',
     'Medical & Health','Pharmacy','Shopping (Clothing)','Shopping (General)','Electronics & Gadgets',
     'Entertainment','Gaming','Travel & Holidays','Flights','Train & Metro','Rent & Maintenance','Bills & Utilities',
     'Internet & Phone','Subscriptions','Education & Courses','EMI & Loan','Fitness & Gym','Gifts & Donations',
     'Vehicle Maintenance & Repairs','Business & Work','Home Repair','Miscellaneous',
-    'Salary','Freelance','Investment Returns','Refunds','Other Income',
+    'Salary','Freelance','Investment Returns','Refunds','Lend Recovery','Other Income',
     'Cashback & Rewards',
     'Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment',
     'Personal Lend','Business Lend'
@@ -41,11 +41,11 @@ if (typeof google === 'undefined') {
     getConfig: () => ({
       accounts: STUB_ACCOUNTS.slice(),
       categories: STUB_CATS,
-      types: ['Expense','Income','Transfer','Cashback','Investment','Lend'],
+      types: ['Expense','Income','Transfer','Cashback','Investment','Lend','Recover'],
       budget: 70000,
       categoryTypeMap: {
         'Groceries':'Expense','Food Orders':'Expense','Eat Out':'Expense','Cafe & Snacks':'Expense',
-        'Fuel':'Expense','Transport (Uber/Auto)':'Expense','Medical & Health':'Expense',
+        'Fuel & Tolls':'Expense','Transport (Uber/Auto)':'Expense','Medical & Health':'Expense',
         'Pharmacy':'Expense','Shopping (Clothing)':'Expense','Shopping (General)':'Expense','Electronics & Gadgets':'Expense',
         'Entertainment':'Expense','Gaming':'Expense','Travel & Holidays':'Expense','Flights':'Expense','Train & Metro':'Expense',
         'Rent & Maintenance':'Expense','Bills & Utilities':'Expense','Internet & Phone':'Expense',
@@ -53,7 +53,7 @@ if (typeof google === 'undefined') {
         'Gifts & Donations':'Expense','Business & Work':'Expense','Home Repair':'Expense',
         'Subscriptions':'Expense','Vehicle Maintenance & Repairs':'Expense','Miscellaneous':'Expense',
         'Salary':'Income','Freelance':'Income','Investment Returns':'Income',
-        'Refunds':'Income','Other Income':'Income',
+        'Refunds':'Recover','Lend Recovery':'Recover','Other Income':'Income',
         'Cashback & Rewards':'Cashback',
         'Mutual Fund':'Investment','Stocks & Zerodha':'Investment','Fixed Deposit':'Investment',
         'Plot & Property':'Investment','PPF & NPS':'Investment','Other Investment':'Investment',
@@ -113,7 +113,7 @@ let chartDonut = null, chartTrend = null, chartAccount = null, chartInvestment =
 let chartTrendMonths = 6;
 
 const CATEGORY_ICONS = {
-  'Groceries':'🛒','Food Orders':'🛵','Eat Out':'🍽️','Cafe & Snacks':'☕','Fuel':'⛽',
+  'Groceries':'🛒','Food Orders':'🛵','Eat Out':'🍽️','Cafe & Snacks':'☕','Fuel & Tolls':'⛽',
   'Transport (Uber/Auto)':'🚗','Medical & Health':'🏥','Pharmacy':'💊',
   'Shopping (Clothing)':'👗','Shopping (General)':'🛍️','Electronics & Gadgets':'📱','Entertainment':'🎬',
   'Gaming':'🎮','Travel & Holidays':'🧳','Flights':'✈️','Train & Metro':'🚆','Rent & Maintenance':'🏠',
@@ -127,7 +127,7 @@ const CATEGORY_ICONS = {
   'Mutual Fund':'📈','Stocks & Zerodha':'📊','Fixed Deposit':'🏦',
   'Plot & Property':'🏗️','PPF & NPS':'🛡️','Other Investment':'💼',
   'Personal Lend':'🤝','Business Lend':'🤝',
-  'Refunds':'↩️','Freelance':'💻','Other Income':'💵',
+  'Refunds':'↩️','Lend Recovery':'🤝','Freelance':'💻','Other Income':'💵',
 };
 
 // ── INIT ──────────────────────────────────────────────────────────────────

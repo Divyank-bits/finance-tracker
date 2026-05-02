@@ -47,6 +47,7 @@ function handleFile(input) {
         else if (currentSource === 'hdfc_cc_pdf')      parsed = _parseHDFCCCPDF(fullText);
         else if (currentSource === 'sapphiro_pdf')     parsed = _parseICICICCPDF(fullText, 'Sapphiro (ICICI)');
         else if (currentSource === 'amazon_icici_pdf') parsed = _parseICICICCPDF(fullText, 'Amazon (ICICI)');
+        else if (currentSource === 'amazon_pay_pdf')   parsed = _parseAmazonPayPDF(fullText);
 
         if (!parsed.length) { showToast('No transactions found. Check password or format.', true); return; }
         previewData = parsed;
@@ -143,8 +144,8 @@ function _autoCategory(text) {
     'amazon pay in e comm':'Shopping (Clothing)','flipkart':'Shopping (Clothing)',
     'amazon pay in grocery':'Groceries','amazon pay grocery':'Groceries',
     'amazon pay in flight':'Flights',
-    'electricity':'Bills & Utilities','petrol':'Fuel','fuel':'Fuel',
-    'bpcl':'Fuel','iocl':'Fuel','hp petrol':'Fuel',
+    'electricity':'Bills & Utilities','petrol':'Fuel & Tolls','fuel':'Fuel & Tolls',
+    'bpcl':'Fuel & Tolls','iocl':'Fuel & Tolls','hp petrol':'Fuel & Tolls',
     'medical':'Medical & Health','pharmacy':'Pharmacy','hospital':'Medical & Health',
     'gym':'Fitness & Gym','mut/':'Mutual Fund','zerodha':'Stocks & Zerodha','claude':'Education & Courses',
     'openai':'Education & Courses','chatgpt':'Education & Courses',
@@ -358,6 +359,94 @@ function _parseICICICCPDF(text, accountName) {
       notes: 'Ref: ' + serNo
     });
   });
+  return results;
+}
+
+// ── AMAZON PAY PDF (Chrome print-to-PDF from pay.amazon.in) ──────────────
+function _parseAmazonPayPDF(text) {
+  const results = [];
+  // Each transaction block: description line(s), "Amazon Pay Balance", date line, amount line
+  // Amount formats: - ₹182.38 | + ₹346 | ₹100 (no sign = released/cancelled → skip)
+  // Normalise — collapse runs of spaces but keep newlines
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  const MONTH_MAP = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  // date like "15 Apr 2026, 07:18 PM"
+  const DATE_RE = /^(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})/;
+  // amount like "- ₹182.38" or "+ ₹346" or "₹100" (no sign)
+  const AMT_RE  = /^([+\-])?\s*[₹₹]([\d,]+(?:\.\d+)?)/;
+
+  // Skip keywords — these are UI chrome lines from the page
+  const SKIP_RE = /^(Amazon Pay Balance|Wallet|Gift Cards|Filter|transactions|Clear all|Add Money|Payment mode|Status|Category|Timeline|Search your|All Refunds Cashbacks|Successful|Pending|Failed|Amazon\.in|Partner merchants|May \d{4}|April \d{4}|March \d{4}|February \d{4}|Older Transaction|Your Transactions|UPI|Netbanking|Cash|Amazon Vouchers|Credit\/Debit|Amazon Pay Later|Subtotal|FREE Rush|Go to Cart|Back to top|Conditions of|©|https?:\/\/)/i;
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Skip UI chrome
+    if (SKIP_RE.test(line) || /^\₹[\d,]+/.test(line) || /^\d+\/\d+\/\d+,/.test(line)) { i++; continue; }
+
+    // Collect description (1-3 lines until we hit "Amazon Pay Balance" or a date line)
+    const descLines = [];
+    let j = i;
+    while (j < lines.length && !DATE_RE.test(lines[j]) && lines[j] !== 'Amazon Pay Balance' && !SKIP_RE.test(lines[j])) {
+      descLines.push(lines[j]);
+      j++;
+      if (descLines.length >= 4) break;
+    }
+    if (!descLines.length) { i++; continue; }
+
+    // Expect "Amazon Pay Balance" next
+    if (j < lines.length && lines[j] === 'Amazon Pay Balance') j++;
+
+    // Expect date line
+    if (j >= lines.length || !DATE_RE.test(lines[j])) { i = j; continue; }
+    const dateMatch = lines[j].match(DATE_RE);
+    const day = parseInt(dateMatch[1]), mon = MONTH_MAP[dateMatch[2]], yr = parseInt(dateMatch[3]);
+    const d = new Date(yr, mon, day);
+    const dateStr = `${yr}-${String(mon+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    j++;
+
+    // Expect amount line
+    if (j >= lines.length || !AMT_RE.test(lines[j])) { i = j; continue; }
+    const amtMatch = lines[j].match(AMT_RE);
+    const sign = amtMatch[1] || '';
+    const amount = parseFloat(amtMatch[2].replace(/,/g,''));
+    j++;
+
+    const description = descLines.join(' ').replace(/\s+/g,' ').trim();
+    const descLower = description.toLowerCase();
+
+    // Skip "Released from" (cancelled/reversed transactions shown struck-through)
+    if (/^released from/i.test(description)) { i = j; continue; }
+    // Skip "Added Money" top-ups shown without a sign (internal wallet loads from other parsers)
+    // Added Money with + sign = Transfer
+
+    let type, category;
+    if (/^cashback/i.test(description) || /rewards earned/i.test(description)) {
+      type = 'Cashback'; category = 'Cashback & Rewards';
+    } else if (/^refund from/i.test(description)) {
+      type = 'Recover'; category = 'Refunds';
+    } else if (/^added money/i.test(description)) {
+      type = 'Transfer'; category = 'Transfer';
+    } else if (/fastag|toll/i.test(description)) {
+      type = 'Expense'; category = 'Fuel & Tolls';
+    } else if (sign === '+') {
+      type = 'Income'; category = 'Other Income';
+    } else if (sign === '-') {
+      type = 'Expense'; category = _autoCategory(description);
+    } else {
+      // no sign and not a known type — skip (usually strikethrough/cancelled)
+      i = j; continue;
+    }
+
+    results.push({
+      date: dateStr, type, category, amount,
+      account: 'Amazon Pay', description,
+      notes: '', refId: `AMZPAY-${dateStr}-${amount}`
+    });
+    i = j;
+  }
   return results;
 }
 </script>

@@ -99,14 +99,15 @@ function renderTransactions(txs) {
                  : tx.type==='Cashback'   ? '🎁'
                  : tx.type==='Investment' ? '💹'
                  : tx.type==='Lend'       ? '🤝'
+                 : tx.type==='Recover'    ? '↩️'
                  : (CATEGORY_ICONS[tx.category]||'💸');
       const tc = tx.type.toLowerCase();
-      const ac = (tx.type==='Income'||tx.type==='Cashback') ? 'income'
+      const ac = (tx.type==='Income'||tx.type==='Cashback'||tx.type==='Recover') ? 'income'
                : tx.type==='Transfer'   ? 'transfer'
                : tx.type==='Investment' ? 'investment'
                : tx.type==='Lend'       ? 'lend'
                : 'expense';
-      const as = (tx.type==='Income'||tx.type==='Cashback') ? '+'
+      const as = (tx.type==='Income'||tx.type==='Cashback'||tx.type==='Recover') ? '+'
                : tx.type==='Transfer'   ? '↔'
                : tx.type==='Lend'       ? '→'
                : '−';

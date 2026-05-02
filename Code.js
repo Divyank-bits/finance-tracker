@@ -23,21 +23,21 @@ const ACCOUNTS = [
 ];
 
 const CATEGORIES = [
-  'Groceries', 'Food Orders', 'Eat Out', 'Cafe & Snacks', 'Fuel',
+  'Groceries', 'Food Orders', 'Eat Out', 'Cafe & Snacks', 'Fuel & Tolls',
   'Transport (Uber/Auto)', 'Medical & Health', 'Pharmacy',
   'Shopping (Clothing)', 'Shopping (General)', 'Electronics & Gadgets', 'Entertainment',
   'Gaming', 'Travel & Holidays', 'Flights', 'Train & Metro', 'Rent & Maintenance',
   'Bills & Utilities', 'Internet & Phone', 'Subscriptions', 'Education & Courses',
   'EMI & Loan', 'Fitness & Gym', 'Gifts & Donations',
   'Vehicle Maintenance & Repairs', 'Business & Work', 'Home Repair', 'Miscellaneous',
-  'Salary', 'Freelance', 'Investment Returns', 'Refunds', 'Other Income',
+  'Salary', 'Freelance', 'Investment Returns', 'Refunds', 'Lend Recovery', 'Other Income',
   'Cashback & Rewards',
   'Mutual Fund', 'Stocks & Zerodha', 'Fixed Deposit',
   'Plot & Property', 'PPF & NPS', 'Other Investment',
   'Personal Lend', 'Business Lend'
 ];
 
-const TRANSACTION_TYPES = ['Expense', 'Income', 'Transfer', 'Cashback', 'Investment', 'Lend'];
+const TRANSACTION_TYPES = ['Expense', 'Income', 'Transfer', 'Cashback', 'Investment', 'Lend', 'Recover'];
 
 // ============================================================
 // WEB APP ENTRY POINT
@@ -240,10 +240,10 @@ function _setupKeywordMap(ss) {
     ['uber', 'Transport (Uber/Auto)', 'Expense'],
     ['ola', 'Transport (Uber/Auto)', 'Expense'],
     ['rapido', 'Transport (Uber/Auto)', 'Expense'],
-    ['bpcl', 'Fuel', 'Expense'],
-    ['indian oil', 'Fuel', 'Expense'],
-    ['iocl', 'Fuel', 'Expense'],
-    ['hp petrol', 'Fuel', 'Expense'],
+    ['bpcl', 'Fuel & Tolls', 'Expense'],
+    ['indian oil', 'Fuel & Tolls', 'Expense'],
+    ['iocl', 'Fuel & Tolls', 'Expense'],
+    ['hp petrol', 'Fuel & Tolls', 'Expense'],
     ['netflix', 'Entertainment', 'Expense'],
     ['hotstar', 'Entertainment', 'Expense'],
     ['spotify', 'Entertainment', 'Expense'],
@@ -262,7 +262,7 @@ function _setupKeywordMap(ss) {
     ['credit card bill', 'Transfer', 'Transfer'],
     ['cc bill', 'Transfer', 'Transfer'],
     ['salary', 'Salary', 'Income'],
-    ['refund', 'Refunds', 'Income'],
+    ['refund', 'Refunds', 'Recover'],
     ['cashback', 'Cashback & Rewards', 'Cashback'],
     // add at end:
     ['zerodha', 'Stocks & Zerodha', 'Investment'],
@@ -919,10 +919,12 @@ function _setupCategories(ss) {
 function _getCategoryType(cat) {
   const investCats = ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment'];
   const lendCats   = ['Personal Lend','Business Lend'];
-  const incomeCats = ['Salary','Freelance','Investment Returns','Refunds','Other Income'];
+  const incomeCats = ['Salary','Freelance','Investment Returns','Other Income'];
+  const recoverCats = ['Refunds', 'Lend Recovery'];
   const cashbackCats = ['Cashback & Rewards'];
   if (investCats.includes(cat))  return 'Investment';
   if (lendCats.includes(cat))    return 'Lend';
+  if (recoverCats.includes(cat)) return 'Recover';
   if (incomeCats.includes(cat))  return 'Income';
   if (cashbackCats.includes(cat))return 'Cashback';
   return 'Expense';
