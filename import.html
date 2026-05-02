@@ -110,21 +110,32 @@ function handleDrop(e) {
 
 function renderPreview(data) {
   window._previewData = data;
-  document.getElementById('preview-count').textContent = data.length;
   const cats = config.categories || [];
-  document.getElementById('preview-body').innerHTML = data.map((tx,i) =>
-    `<tr><td class="mono" style="font-size:11px">${tx.date}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${tx.description}</td><td class="mono">₹${parseFloat(tx.amount).toLocaleString('en-IN')}</td><td style="font-size:12px">${tx.type}</td><td><select class="cat-select" onchange="previewData[${i}].category=this.value">${cats.map(c=>`<option value="${c}" ${c===tx.category?'selected':''}>${c}</option>`).join('')}</select></td></tr>`
+  const rows = data.map((tx,i) =>
+    `<tr><td><input type="checkbox" class="tx-check" data-i="${i}" checked></td><td class="mono" style="font-size:11px">${tx.date}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${tx.description}</td><td class="mono">₹${parseFloat(tx.amount).toLocaleString('en-IN')}</td><td style="font-size:12px">${tx.type}</td><td><select class="cat-select" onchange="previewData[${i}].category=this.value">${cats.map(c=>`<option value="${c}" ${c===tx.category?'selected':''}>${c}</option>`).join('')}</select></td></tr>`
   ).join('');
+  document.getElementById('preview-body').innerHTML = rows;
+  const checked = data.length;
+  document.getElementById('preview-count').textContent = checked + ' of ' + data.length;
+  document.querySelectorAll('.tx-check').forEach(cb => cb.addEventListener('change', _updatePreviewCount));
   document.getElementById('import-preview').style.display = 'block';
 }
 
+function _updatePreviewCount() {
+  const total = previewData.length;
+  const checked = document.querySelectorAll('.tx-check:checked').length;
+  document.getElementById('preview-count').textContent = checked + ' of ' + total;
+}
+
 function confirmImport() {
-  if (!previewData.length) return;
+  const checked = [...document.querySelectorAll('.tx-check:checked')].map(cb => parseInt(cb.dataset.i));
+  const toImport = checked.map(i => previewData[i]);
+  if (!toImport.length) { showToast('No transactions selected', true); return; }
   google.script.run.withSuccessHandler(res => {
     showToast('Imported '+res.imported+' transactions!');
     document.getElementById('import-preview').style.display = 'none';
     previewData = [];
-  }).confirmImport(previewData);
+  }).confirmImport(toImport);
 }
 
 // ── PDF PARSERS ────────────────────────────────────────────────────────────
@@ -379,12 +390,9 @@ function _parseAmazonPayPDF(text) {
     const sign    = m[3] || '';
     const amount  = parseFloat(m[4].replace(/,/g, ''));
 
-    // Skip "Released from" — cancelled/reversed rides (shown strikethrough)
-    if (/released from/i.test(rawDesc)) continue;
-
     // Strip UI chrome that gets captured before the description
     // (sidebar text like "Wallet ₹770 Gift Cards ₹963 Filter transactions ...")
-    const CHROME_STRIP = /^.*?(?=(?:Paid on|FASTag|Added Money|Cashback|Refund from|Amazon Pay ICICI|Showing only))/i;
+    const CHROME_STRIP = /^.*?(?=(?:Paid on|FASTag|Added Money|Cashback|Refund from|Released from|Amazon Pay ICICI|Showing only))/i;
     const desc = rawDesc.replace(CHROME_STRIP, '').replace(/\s+/g, ' ').trim();
     if (!desc) continue;
 
@@ -399,6 +407,8 @@ function _parseAmazonPayPDF(text) {
       type = 'Cashback'; category = 'Cashback & Rewards';
     } else if (/^refund from/i.test(desc)) {
       type = 'Recover'; category = 'Refunds';
+    } else if (/^released from/i.test(desc)) {
+      type = 'Recover'; category = 'Refunds';
     } else if (/^added money/i.test(desc)) {
       type = 'Transfer'; category = 'Transfer';
     } else if (/fastag|toll deduction/i.test(desc)) {
@@ -408,7 +418,7 @@ function _parseAmazonPayPDF(text) {
     } else if (sign === '-') {
       type = 'Expense'; category = _autoCategory(desc);
     } else {
-      continue; // no sign = cancelled, skip
+      continue; // no sign and no known prefix = cancelled, skip
     }
 
     results.push({

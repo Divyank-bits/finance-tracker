@@ -144,11 +144,11 @@
         <div class="section-label">Preview — <span id="preview-count">0</span> transactions</div>
         <div class="preview-wrap">
           <table class="preview-table">
-            <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Type</th><th>Category</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="check-all" checked onchange="document.querySelectorAll('.tx-check').forEach(c=>c.checked=this.checked);_updatePreviewCount()"></th><th>Date</th><th>Description</th><th>Amount</th><th>Type</th><th>Category</th></tr></thead>
             <tbody id="preview-body"></tbody>
           </table>
         </div>
-        <button class="submit-btn" onclick="confirmImport()">Import All</button>
+        <button class="submit-btn" onclick="confirmImport()">Import Selected</button>
       </div>
     </div>
     <div class="card" style="padding:20px;margin-bottom:12px;">
