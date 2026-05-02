@@ -326,50 +326,80 @@ function _parseHDFCCCPDF(text) {
   return results;
 }
 
-// ── ICICI CC PDF (Sapphiro + Amazon ICICI — same format) ──────────────────
+// ── ICICI CC PDF (Sapphiro + Amazon ICICI — handles two formats) ─────────
 function _parseICICICCPDF(text, accountName) {
   const results = [];
   const normalized = text.replace(/\r/g, '').replace(/[ \t]+/g, ' ');
-  const datePattern = /\b(\d{2}\/\d{2}\/\d{4})\b/g;
-  const dateMatches = [...normalized.matchAll(datePattern)];
+
+  // Format A: DD/MM/YYYY  <10+digit serial>  <description>  <amount>
+  const datePatternA = /\b(\d{2}\/\d{2}\/\d{4})\b/g;
+  const matchesA = [...normalized.matchAll(datePatternA)];
   const serNoPattern = /^\s*(\d{10,})\s+/;
 
-  dateMatches.forEach((match, idx) => {
-    const date = match[1];
-    const start = match.index + match[0].length;
-    const end = idx + 1 < dateMatches.length ? dateMatches[idx+1].index : normalized.length;
-    const block = normalized.substring(start, end).trim();
-    if (!serNoPattern.test(block)) return;
+  if (matchesA.length) {
+    matchesA.forEach((match, idx) => {
+      const date = match[1];
+      const start = match.index + match[0].length;
+      const end = idx + 1 < matchesA.length ? matchesA[idx+1].index : normalized.length;
+      const block = normalized.substring(start, end).trim();
+      if (!serNoPattern.test(block)) return;
 
-    const serNoMatch = block.match(serNoPattern);
-    const serNo = serNoMatch[1];
-    const afterSerNo = block.substring(serNoMatch[0].length).trim();
+      const serNoMatch = block.match(serNoPattern);
+      const serNo = serNoMatch[1];
+      const afterSerNo = block.substring(serNoMatch[0].length).trim();
 
-    const amtMatch = afterSerNo.match(/(-?[\d,]+\.\d{2})\s*$/)
-      || afterSerNo.match(/([\d,]+\.\d{2})(?:\s*Cr)?\s*$/i);
-    if (!amtMatch) return;
+      const amtMatch = afterSerNo.match(/(-?[\d,]+\.\d{2})\s*$/)
+        || afterSerNo.match(/([\d,]+\.\d{2})(?:\s*Cr)?\s*$/i);
+      if (!amtMatch) return;
 
-    const isCredit = amtMatch[0].includes('-') || /cr/i.test(amtMatch[0]);
-    const amount = parseFloat(amtMatch[1].replace(/,/g, '').replace('-',''));
-    if (!amount || amount <= 0) return;
+      const isCredit = amtMatch[0].includes('-') || /cr/i.test(amtMatch[0]);
+      const amount = parseFloat(amtMatch[1].replace(/,/g, '').replace('-',''));
+      if (!amount || amount <= 0) return;
 
-    let descBlock = afterSerNo.substring(0, afterSerNo.lastIndexOf(amtMatch[0])).trim();
-    descBlock = descBlock.replace(/\s+\d{1,4}\s*$/, '');
-    descBlock = descBlock.replace(/\s+\d+\s+[A-Z]{3}\s*$/, '');
-    const description = descBlock.replace(/\s+/g, ' ').trim();
-    if (!description) return;
+      let descBlock = afterSerNo.substring(0, afterSerNo.lastIndexOf(amtMatch[0])).trim();
+      descBlock = descBlock.replace(/\s+\d{1,4}\s*$/, '').replace(/\s+\d+\s+[A-Z]{3}\s*$/, '');
+      const description = descBlock.replace(/\s+/g, ' ').trim();
+      if (!description) return;
+
+      let type = 'Expense';
+      if (isCredit) type = 'Transfer';
+      else if (/cashback|reward|refund/i.test(description)) type = 'Cashback';
+
+      results.push({ date, description, amount, type, account: accountName, category: _autoCategory(description), notes: 'Ref: ' + serNo });
+    });
+    if (results.length) return results;
+  }
+
+  // Format B: DD-MMM-YY  <serial>  <description>  <intl-amt>  <INR-amt>
+  // e.g. "28-APR-25   75503725119034460308797   MAXLIFE MUMBAI IN   0.00   15,000.00"
+  const MONTH_MAP = {JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+  const TX_RE = /(\d{2}-(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-\d{2})\s+(\S+)\s+(.+?)\s+([\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})/gi;
+  let m;
+  while ((m = TX_RE.exec(normalized)) !== null) {
+    const [, rawDate, serNo, rawDesc, , rawAmt] = m;
+    const dp = rawDate.match(/(\d{2})-([A-Z]{3})-(\d{2})/i);
+    if (!dp) continue;
+    const mon = MONTH_MAP[dp[2].toUpperCase()];
+    if (mon === undefined) continue;
+    const yr = 2000 + parseInt(dp[3]);
+    const date = `${yr}-${String(mon+1).padStart(2,'0')}-${dp[1]}`;
+
+    const amount = parseFloat(rawAmt.replace(/,/g,''));
+    if (amount === 0) continue;
+    const isCredit = amount < 0;
+    const absAmount = Math.abs(amount);
+
+    const description = rawDesc.replace(/\s+/g,' ').trim();
 
     let type = 'Expense';
-    if (isCredit) type = 'Transfer';
-    else if (/cashback|reward|refund/i.test(description)) type = 'Cashback';
+    if (isCredit) type = 'Recover';
+    else if (/cashback|reward/i.test(description)) type = 'Cashback';
+    else if (/bbps|payment received/i.test(description)) type = 'Transfer';
 
-    results.push({
-      date, description, amount, type,
-      account: accountName,
-      category: _autoCategory(description),
-      notes: 'Ref: ' + serNo
-    });
-  });
+    const category = isCredit ? 'Refunds' : _autoCategory(description);
+
+    results.push({ date, description, amount: absAmount, type, account: accountName, category, notes: 'Ref: ' + serNo });
+  }
   return results;
 }
 
