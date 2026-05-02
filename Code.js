@@ -26,7 +26,7 @@ const CATEGORIES = [
   'Groceries', 'Food Orders', 'Eat Out', 'Cafe & Snacks', 'Fuel',
   'Transport (Uber/Auto)', 'Medical & Health', 'Pharmacy',
   'Shopping (Clothing)', 'Shopping (General)', 'Electronics & Gadgets', 'Entertainment',
-  'Gaming', 'Travel & Holidays', 'Rent & Maintenance',
+  'Gaming', 'Travel & Holidays', 'Flights', 'Train & Metro', 'Rent & Maintenance',
   'Bills & Utilities', 'Internet & Phone', 'Subscriptions', 'Education & Courses',
   'EMI & Loan', 'Fitness & Gym', 'Gifts & Donations',
   'Vehicle Maintenance & Repairs', 'Business & Work', 'Home Repair', 'Miscellaneous',
