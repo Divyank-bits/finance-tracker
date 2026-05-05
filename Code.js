@@ -914,8 +914,8 @@ function _parseBySource(rows, source, kwData) {
           || dateStr.toLowerCase().includes('opening') || dateStr.toLowerCase().includes('statement')) continue;
       if (!/^\d{2}\/\d{2}\/\d{2,4}/.test(dateStr) && !(firstCell instanceof Date)) continue;
 
-      const withdrawal = parseFloat(String(row[4] || '').replace(/[^0-9.]/g, '')) || 0;
-      const deposit = parseFloat(String(row[5] || '').replace(/[^0-9.]/g, '')) || 0;
+      const withdrawal = parseFloat(String(row[3] || '').replace(/[^0-9.]/g, '')) || 0;
+      const deposit = parseFloat(String(row[4] || '').replace(/[^0-9.]/g, '')) || 0;
       if (!withdrawal && !deposit) continue;
 
       tx.date = dateStr;
