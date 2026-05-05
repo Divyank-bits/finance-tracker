@@ -83,12 +83,13 @@ function handleFile(input) {
     };
     reader.readAsDataURL(file);
   } else {
+    const backendSource = currentSource === 'sbi_bank' ? 'sbi' : currentSource;
     reader.onload = e => {
       showToast('Processing CSV…');
       google.script.run
         .withSuccessHandler(res => { if(!res?.success){showToast('Error: '+(res?.error||''),true);return;} previewData=res.preview; renderPreview(previewData); showToast('Found '+previewData.length+' transactions!'); })
         .withFailureHandler(err => showToast('Failed: '+(err?.message||''),true))
-        .importCSV(e.target.result, currentSource);
+        .importCSV(e.target.result, backendSource);
     };
     reader.readAsText(file);
   }

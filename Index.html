@@ -122,20 +122,25 @@
   <div class="page-body">
     <div class="card" style="padding:20px;margin-bottom:12px;">
       <div class="section-label" style="margin-top:0">Select Source</div>
+      <div class="source-group-label">PDF</div>
       <div class="source-grid">
         <button class="source-btn" onclick="selectSource('union_pdf',this)">🏦 Union Bank PDF</button>
-        <button class="source-btn" onclick="selectSource('bhim_union',this)">📱 BHIM (Union)</button>
-        <button class="source-btn" onclick="selectSource('bhim_upilite',this)">💳 BHIM (UPI Lite)</button>
-        <button class="source-btn" onclick="selectSource('bhim_sbi',this)">📱 BHIM (SBI)</button>
         <button class="source-btn" onclick="selectSource('hdfc_bank_pdf',this)">🏦 HDFC Bank PDF</button>
-        <button class="source-btn" onclick="selectSource('hdfc_bank',this)">🏦 HDFC Bank XLS</button>
         <button class="source-btn" onclick="selectSource('hdfc_cc_pdf',this)">💳 Millennia PDF</button>
         <button class="source-btn" onclick="selectSource('sapphiro_pdf',this)">💳 Sapphiro PDF</button>
         <button class="source-btn" onclick="selectSource('amazon_icici_pdf',this)">💳 Amazon ICICI PDF</button>
-        <button class="source-btn" onclick="selectSource('icici_cc',this)">💳 Sapphiro XLS</button>
-        <button class="source-btn" onclick="selectSource('amazon_icici',this)">💳 Amazon ICICI XLS</button>
-        <button class="source-btn soon" title="Coming soon">📱 Google Pay</button>
         <button class="source-btn" onclick="selectSource('amazon_pay_pdf',this)">🛒 Amazon Pay PDF</button>
+      </div>
+      <div class="source-group-label">XLS / CSV</div>
+      <div class="source-grid">
+        <button class="source-btn" onclick="selectSource('hdfc_bank',this)">🏦 HDFC Bank XLS</button>
+        <button class="source-btn" onclick="selectSource('sbi_bank',this)">🏦 SBI Bank XLS</button>
+        <button class="source-btn" onclick="selectSource('icici_cc',this)">💳 Sapphiro XLS</button>
+      </div>
+      <div class="source-group-label">BHIM App</div>
+      <div class="source-grid">
+        <button class="source-btn" onclick="selectSource('bhim_union',this)">📱 BHIM (Union)</button>
+        <button class="source-btn" onclick="selectSource('bhim_upilite',this)">💳 BHIM (UPI Lite)</button>
       </div>
       <div id="pdf-password-wrap" style="display:none;margin-bottom:12px;">
         <label class="form-label">PDF Password</label>
@@ -166,12 +171,12 @@
       <div class="section-label" style="margin-top:0">How to download</div>
       <div style="padding:4px 0">
         <div class="how-to-row"><span class="how-to-bank">Union Bank PDF</span>Vyom App → Accounts → Statement → Download PDF</div>
-        <div class="how-to-row"><span class="how-to-bank">BHIM App (Union/SBI/UPI Lite)</span>BHIM → Transaction History → Download HTML</div>
+        <div class="how-to-row"><span class="how-to-bank">BHIM App (Union/UPI Lite)</span>BHIM → Transaction History → Download HTML</div>
         <div class="how-to-row"><span class="how-to-bank">HDFC Bank</span>NetBanking → Accounts → Statement → Download PDF or Excel</div>
+        <div class="how-to-row"><span class="how-to-bank">SBI Bank</span>YONO / NetBanking → Account Statement → Download Excel</div>
         <div class="how-to-row"><span class="how-to-bank">Sapphiro / Amazon ICICI CC</span>iMobile → Cards → Statement → Download PDF or XLS</div>
         <div class="how-to-row"><span class="how-to-bank">Millennia HDFC CC</span>NetBanking → Cards → Statement → Download PDF</div>
         <div class="how-to-row"><span class="how-to-bank">Amazon Pay PDF</span>Open pay.amazon.in → Your Transactions → Ctrl+P → Save as PDF</div>
-        <div class="how-to-row"><span class="how-to-bank">Google Pay</span>Coming soon — add manually for now</div>
       </div>
     </div>
   </div>
