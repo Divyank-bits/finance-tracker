@@ -58,7 +58,7 @@ if (typeof google === 'undefined') {
         'Mutual Fund':'Investment','Stocks & Zerodha':'Investment','Fixed Deposit':'Investment',
         'Plot & Property':'Investment','PPF & NPS':'Investment','Other Investment':'Investment',
         'Personal Lend':'Lend','Business Lend':'Lend',
-        'Family Transfer':'Expense','Rent Income':'Income'
+        'Family Transfer':'Expense','Family Received':'Income','Rent Income':'Income'
       },
       categoryIconMap: CATEGORY_ICONS_FALLBACK
     }),
@@ -133,7 +133,7 @@ const CATEGORY_ICONS_FALLBACK = {
   'Plot & Property':'🏗️','PPF & NPS':'🛡️','Other Investment':'💼',
   'Personal Lend':'🤝','Business Lend':'🤝',
   'Refunds':'↩️','Lend Recovery':'🤝','Freelance':'💻','Other Income':'💵',
-  'Family Transfer':'👨‍👩‍👧','Rent Income':'🏘️',
+  'Family Transfer':'👨‍👩‍👧','Family Received':'👨‍👩‍👧','Rent Income':'🏘️',
 };
 function _catIcon(cat) {
   return (config.categoryIconMap && config.categoryIconMap[cat]) || CATEGORY_ICONS_FALLBACK[cat] || '•';

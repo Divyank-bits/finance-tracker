@@ -35,7 +35,7 @@ const CATEGORIES = [
   'Mutual Fund', 'Stocks & Zerodha', 'Fixed Deposit',
   'Plot & Property', 'PPF & NPS', 'Other Investment',
   'Personal Lend', 'Business Lend',
-  'Family Transfer', 'Rent Income'
+  'Family Transfer', 'Family Received', 'Rent Income'
 ];
 
 const TRANSACTION_TYPES = ['Expense', 'Income', 'Transfer', 'Cashback', 'Investment', 'Lend', 'Recover'];
@@ -1013,7 +1013,7 @@ function _setupCategories(ss) {
     'Plot & Property':'🏗️','PPF & NPS':'🛡️','Other Investment':'💼',
     'Personal Lend':'🤝','Business Lend':'🤝',
     'Refunds':'↩️','Lend Recovery':'🤝','Salary':'💰','Freelance':'💻','Other Income':'💵',
-    'Family Transfer':'👨‍👩‍👧','Rent Income':'🏘️',
+    'Family Transfer':'👨‍👩‍👧','Family Received':'👨‍👩‍👧','Rent Income':'🏘️',
   };
   const catData = CATEGORIES.map(c => [c, 'Yes', _getCategoryType(c), ICONS[c] || '•']);
   sh.getRange(2, 1, catData.length, 4).setValues(catData);
@@ -1023,7 +1023,7 @@ function _setupCategories(ss) {
 function _getCategoryType(cat) {
   const investCats = ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment'];
   const lendCats   = ['Personal Lend','Business Lend'];
-  const incomeCats = ['Salary','Freelance','Investment Returns','Other Income','Rent Income'];
+  const incomeCats = ['Salary','Freelance','Investment Returns','Other Income','Rent Income','Family Received'];
   const recoverCats = ['Refunds', 'Lend Recovery'];
   const cashbackCats = ['Cashback & Rewards'];
   if (investCats.includes(cat))  return 'Investment';
