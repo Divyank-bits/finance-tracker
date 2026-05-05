@@ -13,7 +13,7 @@ function renderDashboard(d) {
   const catEntries = Object.entries(d.categoryMap || {}).sort((a,b) => b[1]-a[1]).slice(0,5);
   const maxCat = catEntries[0]?.[1] || 1;
   const catBars = catEntries.map(([cat,amt]) =>
-    `<div class="cat-row"><div class="cat-row-top"><span class="cat-name">${CATEGORY_ICONS[cat]||'•'} ${cat}</span><span class="cat-amt">₹${amt.toLocaleString('en-IN')}</span></div><div class="cat-track"><div class="cat-fill" style="width:${Math.round((amt/maxCat)*100)}%"></div></div></div>`
+    `<div class="cat-row"><div class="cat-row-top"><span class="cat-name">${_catIcon(cat)} ${cat}</span><span class="cat-amt">₹${amt.toLocaleString('en-IN')}</span></div><div class="cat-track"><div class="cat-fill" style="width:${Math.round((amt/maxCat)*100)}%"></div></div></div>`
   ).join('');
 
   document.getElementById('dashboard-content').innerHTML = `

@@ -57,8 +57,10 @@ if (typeof google === 'undefined') {
         'Cashback & Rewards':'Cashback',
         'Mutual Fund':'Investment','Stocks & Zerodha':'Investment','Fixed Deposit':'Investment',
         'Plot & Property':'Investment','PPF & NPS':'Investment','Other Investment':'Investment',
-        'Personal Lend':'Lend','Business Lend':'Lend'
-      }
+        'Personal Lend':'Lend','Business Lend':'Lend',
+        'Family Transfer':'Expense','Rent Income':'Income'
+      },
+      categoryIconMap: CATEGORY_ICONS_FALLBACK
     }),
     getDashboardData:() => STUB_DASH,
     getTransactions: () => STUB_TXS,
@@ -108,12 +110,14 @@ window.addEventListener('resize', applyLayout);
 let currentPage = 'dashboard', currentType = 'Expense';
 let cashbackOn = false, currentSource = '', currentFilter = 'All';
 let previewData = [], allTxs = [];
-let config = { accounts:[], categories:[], budget:0, categoryTypeMap:{} };
+let config = { accounts:[], categories:[], budget:0, categoryTypeMap:{}, categoryIconMap:{} };
 let pieChart = null, trendChart = null;
 let chartDonut = null, chartTrend = null, chartAccount = null, chartInvestment = null;
 let chartTrendMonths = 6;
 
-const CATEGORY_ICONS = {
+// Icons are now loaded dynamically from the Categories sheet via config.categoryIconMap.
+// This fallback is used only when config hasn't loaded yet.
+const CATEGORY_ICONS_FALLBACK = {
   'Groceries':'🛒','Food Orders':'🛵','Eat Out':'🍽️','Cafe & Snacks':'☕','Fuel & Tolls':'⛽',
   'Transport (Uber/Auto)':'🚗','Medical & Health':'🏥','Pharmacy':'💊',
   'Shopping (Clothing)':'👗','Shopping (General)':'🛍️','Electronics & Gadgets':'📱','Entertainment':'🎬',
@@ -129,7 +133,11 @@ const CATEGORY_ICONS = {
   'Plot & Property':'🏗️','PPF & NPS':'🛡️','Other Investment':'💼',
   'Personal Lend':'🤝','Business Lend':'🤝',
   'Refunds':'↩️','Lend Recovery':'🤝','Freelance':'💻','Other Income':'💵',
+  'Family Transfer':'👨‍👩‍👧','Rent Income':'🏘️',
 };
+function _catIcon(cat) {
+  return (config.categoryIconMap && config.categoryIconMap[cat]) || CATEGORY_ICONS_FALLBACK[cat] || '•';
+}
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {

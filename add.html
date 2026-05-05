@@ -50,7 +50,7 @@ function _filterCategoriesForType(type) {
   );
   const toShow = filtered.length ? filtered : config.categories;
   document.getElementById('f-category').innerHTML =
-    toShow.map(c => `<option value="${c}">${CATEGORY_ICONS[c]||'•'} ${c}</option>`).join('');
+    toShow.map(c => `<option value="${c}">${_catIcon(c)} ${c}</option>`).join('');
 }
 
 function toggleCashback() {

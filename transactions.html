@@ -131,7 +131,7 @@ function renderTransactions(txs) {
                  : tx.type==='Investment' ? '💹'
                  : tx.type==='Lend'       ? '🤝'
                  : tx.type==='Recover'    ? '↩️'
-                 : (CATEGORY_ICONS[tx.category]||'💸');
+                 : _catIcon(tx.category);
       const tc = tx.type.toLowerCase();
       const ac = (tx.type==='Income'||tx.type==='Cashback'||tx.type==='Recover') ? 'income'
                : tx.type==='Transfer'   ? 'transfer'

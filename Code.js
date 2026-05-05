@@ -713,15 +713,18 @@ function getConfig() {
 
   let categories = CATEGORIES;
   let categoryTypeMap = {};
+  let categoryIconMap = {};
 
   if (sh && sh.getLastRow() > 1) {
-    const data = sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues();
+    const data = sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues();
     categories = data
       .filter(r => String(r[1]).trim().toLowerCase() === 'yes' && String(r[0]).trim())
       .map(r => String(r[0]).trim());
     data.forEach(r => {
-      if (String(r[0]).trim()) {
-        categoryTypeMap[String(r[0]).trim()] = String(r[2]).trim() || 'Expense';
+      const name = String(r[0]).trim();
+      if (name) {
+        categoryTypeMap[name] = String(r[2]).trim() || 'Expense';
+        if (r[3]) categoryIconMap[name] = String(r[3]).trim();
       }
     });
   } else {
@@ -729,7 +732,7 @@ function getConfig() {
     CATEGORIES.forEach(c => { categoryTypeMap[c] = _getCategoryType(c); });
   }
 
-  return { accounts: ACCOUNTS, categories, types: TRANSACTION_TYPES, categoryTypeMap };
+  return { accounts: ACCOUNTS, categories, types: TRANSACTION_TYPES, categoryTypeMap, categoryIconMap };
 }
 
 function getBudgetSettings() {
@@ -993,11 +996,26 @@ function _matchCategory(description, kwData) {
 function _setupCategories(ss) {
   let sh = ss.getSheetByName(SHEETS.CATEGORIES) || ss.insertSheet(SHEETS.CATEGORIES);
   sh.clearContents();
-  const headers = ['Category Name', 'Active (Yes/No)', 'Type'];
-  sh.getRange(1, 1, 1, 3).setValues([headers]).setFontWeight('bold').setBackground('#1a73e8').setFontColor('#ffffff');
+  const headers = ['Category Name', 'Active (Yes/No)', 'Type', 'Icon'];
+  sh.getRange(1, 1, 1, 4).setValues([headers]).setFontWeight('bold').setBackground('#1a73e8').setFontColor('#ffffff');
   sh.setFrozenRows(1);
-  const catData = CATEGORIES.map(c => [c, 'Yes', _getCategoryType(c)]);
-  sh.getRange(2, 1, catData.length, 3).setValues(catData);
+  const ICONS = {
+    'Groceries':'🛒','Food Orders':'🛵','Eat Out':'🍽️','Cafe & Snacks':'☕','Fuel & Tolls':'⛽',
+    'Transport (Uber/Auto)':'🚗','Medical & Health':'🏥','Pharmacy':'💊',
+    'Shopping (Clothing)':'👗','Shopping (General)':'🛍️','Electronics & Gadgets':'📱','Entertainment':'🎬',
+    'Gaming':'🎮','Travel & Holidays':'🧳','Flights':'✈️','Train & Metro':'🚆','Rent & Maintenance':'🏠',
+    'Bills & Utilities':'💡','Internet & Phone':'📶','Education & Courses':'📚',
+    'EMI & Loan':'💰','Fitness & Gym':'🏋️','Gifts & Donations':'🎁',
+    'Business & Work':'💼','Home Repair':'🔧','Subscriptions':'📺','Vehicle Maintenance & Repairs':'🔧',
+    'Cashback & Rewards':'🎁','Investment Returns':'💹','Miscellaneous':'💸','Transfer':'🔄',
+    'Mutual Fund':'📈','Stocks & Zerodha':'📊','Fixed Deposit':'🏦',
+    'Plot & Property':'🏗️','PPF & NPS':'🛡️','Other Investment':'💼',
+    'Personal Lend':'🤝','Business Lend':'🤝',
+    'Refunds':'↩️','Lend Recovery':'🤝','Salary':'💰','Freelance':'💻','Other Income':'💵',
+    'Family Transfer':'👨‍👩‍👧','Rent Income':'🏘️',
+  };
+  const catData = CATEGORIES.map(c => [c, 'Yes', _getCategoryType(c), ICONS[c] || '•']);
+  sh.getRange(2, 1, catData.length, 4).setValues(catData);
 }
 
 
