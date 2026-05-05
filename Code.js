@@ -19,7 +19,7 @@ const SHEETS = {
 const ACCOUNTS = [
   'HDFC Bank', 'Union Bank', 'SBI',
   'Sapphiro (ICICI)', 'Millennia (HDFC)', 'Amazon (ICICI)',
-  'Amazon Pay Wallet', 'UPI Lite', 'Cash'
+  'Amazon Pay', 'UPI Lite', 'Cash'
 ];
 
 const CATEGORIES = [
@@ -993,6 +993,12 @@ function _matchCategory(description, kwData) {
   return null;
 }
 
+
+function setupCategoriesSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  _setupCategories(ss);
+  Logger.log('✅ Categories sheet rebuilt with icons.');
+}
 
 function _setupCategories(ss) {
   let sh = ss.getSheetByName(SHEETS.CATEGORIES) || ss.insertSheet(SHEETS.CATEGORIES);

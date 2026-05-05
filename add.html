@@ -10,9 +10,6 @@ function setType(type, btn) {
     type === 'Transfer' ? 'none' : 'block';
   document.getElementById('lend-fields').style.display =
     type === 'Lend' ? 'flex' : 'none';
-  document.getElementById('cashback-toggle-row').style.display =
-    (type === 'Investment' || type === 'Lend') ? 'none' : 'flex';
-
   _filterCategoriesForType(type);
 
   if (type === 'Recover') _loadOpenLendPicker();
@@ -53,11 +50,6 @@ function _filterCategoriesForType(type) {
     toShow.map(c => `<option value="${c}">${_catIcon(c)} ${c}</option>`).join('');
 }
 
-function toggleCashback() {
-  cashbackOn = !cashbackOn;
-  document.getElementById('cb-toggle').classList.toggle('on', cashbackOn);
-  document.getElementById('cashback-fields').style.display = cashbackOn ? 'block' : 'none';
-}
 
 function submitTransaction() {
   const amount = parseFloat(document.getElementById('f-amount').value);
@@ -69,13 +61,13 @@ function submitTransaction() {
   const data = {
     date: document.getElementById('f-date').value,
     type: currentType,
-    category: document.getElementById('f-category').value,
+    category: currentType === 'Transfer' ? '' : document.getElementById('f-category').value,
     amount,
     account: document.getElementById('f-account').value,
     description: document.getElementById('f-desc').value,
     notes: document.getElementById('f-notes').value,
-    isCashback: cashbackOn,
-    cashbackAmount: cashbackOn ? parseFloat(document.getElementById('f-cashback-amt').value)||0 : 0,
+    isCashback: false,
+    cashbackAmount: 0,
     linkedTxId: linkedLendId
   };
 
@@ -87,8 +79,6 @@ function submitTransaction() {
         ['f-amount','f-desc','f-notes','f-lend-person','f-lend-due','f-open-lend'].forEach(id => {
           const el = document.getElementById(id); if(el) el.value = '';
         });
-        if (cashbackOn) { toggleCashback(); document.getElementById('f-cashback-amt').value = ''; }
-
         if (currentType === 'Lend') {
           const person = document.getElementById('f-lend-person').value.trim();
           const dueDate = document.getElementById('f-lend-due').value;
