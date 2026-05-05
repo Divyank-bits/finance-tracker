@@ -34,7 +34,8 @@ const CATEGORIES = [
   'Cashback & Rewards',
   'Mutual Fund', 'Stocks & Zerodha', 'Fixed Deposit',
   'Plot & Property', 'PPF & NPS', 'Other Investment',
-  'Personal Lend', 'Business Lend'
+  'Personal Lend', 'Business Lend',
+  'Family Transfer', 'Rent Income'
 ];
 
 const TRANSACTION_TYPES = ['Expense', 'Income', 'Transfer', 'Cashback', 'Investment', 'Lend', 'Recover'];
@@ -1022,7 +1023,7 @@ function _setupCategories(ss) {
 function _getCategoryType(cat) {
   const investCats = ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment'];
   const lendCats   = ['Personal Lend','Business Lend'];
-  const incomeCats = ['Salary','Freelance','Investment Returns','Other Income'];
+  const incomeCats = ['Salary','Freelance','Investment Returns','Other Income','Rent Income'];
   const recoverCats = ['Refunds', 'Lend Recovery'];
   const cashbackCats = ['Cashback & Rewards'];
   if (investCats.includes(cat))  return 'Investment';
