@@ -74,12 +74,13 @@ function handleFile(input) {
     };
     reader.readAsText(file);
   } else if (isXLS) {
+    const backendSource = currentSource === 'sbi_bank' ? 'sbi' : currentSource;
     reader.onload = e => {
       showToast('Converting XLS… ~15s');
       google.script.run
         .withSuccessHandler(res => { if(!res?.success){showToast('Error: '+(res?.error||''),true);return;} if(!res.preview?.length){showToast('No transactions found',true);return;} previewData=res.preview; renderPreview(previewData); showToast('Found '+previewData.length+' transactions!'); })
         .withFailureHandler(err => showToast('Failed: '+(err?.message||''),true))
-        .importXLS(e.target.result.split(',')[1], currentSource);
+        .importXLS(e.target.result.split(',')[1], backendSource);
     };
     reader.readAsDataURL(file);
   } else {
