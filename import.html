@@ -151,7 +151,7 @@ function _autoCategory(text) {
     'dmart':'Groceries','grocery':'Groceries',
     'uber':'Transport (Uber/Auto)','ola':'Transport (Uber/Auto)','rapido':'Transport (Uber/Auto)',
     'irctc':'Train & Metro','metro':'Train & Metro','dmrc':'Train & Metro','nmmc':'Train & Metro','flight':'Flights','airline':'Flights','indigo':'Flights','spicejet':'Flights','air india':'Flights','akasa':'Flights','vistara':'Flights','makemytrip':'Flights','goibibo':'Flights','cleartrip':'Flights',
-    'salary':'Income','nach/mut':'Mutual Fund','nach':'EMI & Loan','fin indian':'EMI & Loan','emi':'EMI & Loan',
+    'salary':'Income','nach/mut':'Mutual Fund','nach':'EMI & Loan','emi':'EMI & Loan',
     'netflix':'Entertainment','hotstar':'Entertainment','spotify':'Entertainment',
     'airtel':'Internet & Phone','jio':'Internet & Phone',
     'amazon pay in e comm':'Shopping (Clothing)','flipkart':'Shopping (Clothing)',
@@ -161,6 +161,7 @@ function _autoCategory(text) {
     'bpcl':'Fuel & Tolls','iocl':'Fuel & Tolls','hp petrol':'Fuel & Tolls',
     'medical':'Medical & Health','pharmacy':'Pharmacy','hospital':'Medical & Health',
     'gym':'Fitness & Gym','mut/':'Mutual Fund','zerodha':'Stocks & Zerodha','claude':'Education & Courses',
+    'dividend':'Investment Returns','fnldi':'Investment Returns','dscnb':'Investment Returns',
     'openai':'Education & Courses','chatgpt':'Education & Courses',
     'cashback':'Cashback & Rewards','refund':'Cashback & Rewards',
     'payment':'Transfer','billpay':'Transfer','cc payment':'Transfer',
@@ -217,7 +218,13 @@ function _parseUnionBankPDF(text) {
 
     const cat = _autoCategory(friendly + ' ' + description);
     const INVEST_CATS = ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment'];
-    const type = drCr === 'CR' ? 'Income' : INVEST_CATS.includes(cat) ? 'Investment' : 'Expense';
+    const TRANSFER_BACK = ['Stocks & Zerodha']; // broker withdrawals back to bank = Transfer
+    let type;
+    if (drCr === 'CR') {
+      type = TRANSFER_BACK.includes(cat) ? 'Transfer' : 'Income';
+    } else {
+      type = INVEST_CATS.includes(cat) ? 'Investment' : 'Expense';
+    }
     results.push({
       date, description: friendly, amount: txAmt,
       type, account: 'Union Bank', category: cat,
@@ -424,7 +431,7 @@ function _parseAmazonPayPDF(text) {
 
     // Strip UI chrome that gets captured before the description
     // (sidebar text like "Wallet ₹770 Gift Cards ₹963 Filter transactions ...")
-    const CHROME_STRIP = /^.*?(?=(?:Paid on|FASTag|Added Money|Cashback|Refund from|Released from|Amazon Pay ICICI|Showing only))/i;
+    const CHROME_STRIP = /^.*?(?=(?:Paid on|FASTag|Added Money|Cashback|Refund from|Released from|On-hold for|Amazon Pay ICICI|Showing only))/i;
     const desc = rawDesc.replace(CHROME_STRIP, '').replace(/\s+/g, ' ').trim();
     if (!desc) continue;
 
@@ -439,8 +446,8 @@ function _parseAmazonPayPDF(text) {
       type = 'Cashback'; category = 'Cashback & Rewards';
     } else if (/^refund from/i.test(desc)) {
       type = 'Recover'; category = 'Refunds';
-    } else if (/^released from/i.test(desc)) {
-      continue; // strikethrough in UI = cancelled auth hold, skip
+    } else if (/^released from/i.test(desc) || /^on-hold for/i.test(desc)) {
+      continue; // cancelled auth holds, skip
     } else if (/^added money/i.test(desc)) {
       type = 'Transfer'; category = 'Transfer';
     } else if (/fastag|toll deduction/i.test(desc)) {
