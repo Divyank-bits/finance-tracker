@@ -16,9 +16,11 @@ function _makeFilterRow(prefix, onNmCb, onMonthCb, onYearCb, monthOpts, yearOpts
   return `
     <div class="chart-filter-row">
       <div class="chart-filter-left">
+        <button class="chart-filter-btn" onclick="${onNmCb}(1,this,'${prefix}')">1M</button>
         <button class="chart-filter-btn ${defaultN===3?'active':''}" onclick="${onNmCb}(3,this,'${prefix}')">3M</button>
         <button class="chart-filter-btn ${defaultN===6?'active':''}" onclick="${onNmCb}(6,this,'${prefix}')">6M</button>
         <button class="chart-filter-btn ${defaultN===12?'active':''}" onclick="${onNmCb}(12,this,'${prefix}')">12M</button>
+        <button class="chart-filter-btn" onclick="_onAllFilter('${prefix}',this)">All</button>
       </div>
       <div class="chart-filter-right">
         <select class="chart-month-select" id="${prefix}-mo" onchange="${onMonthCb}('${prefix}')">
@@ -75,11 +77,18 @@ function renderCharts(d, inv) {
   window._chartsData = d;
   window._invData = inv;
 
+  // Default all charts to current month
+  const now = new Date();
+  const curMo = String(now.getMonth()+1).padStart(2,'0');
+  const curYr = String(now.getFullYear());
   setTimeout(() => {
-    _applyFilter('cat');
-    _applyFilter('trend', 3);
-    _applyFilter('inv');
-    _applyFilter('acc');
+    ['cat','trend','inv','acc'].forEach(prefix => {
+      const moEl = document.getElementById(prefix+'-mo');
+      const yrEl = document.getElementById(prefix+'-yr');
+      if (moEl) moEl.value = curMo;
+      if (yrEl) yrEl.value = curYr;
+      _applyFilter(prefix);
+    });
   }, 150);
 }
 
@@ -107,6 +116,14 @@ function _onYearFilter(prefix) {
   const row = document.getElementById(prefix+'-yr').closest('.chart-filter-row');
   row.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
   _applyFilter(prefix);
+}
+
+function _onAllFilter(prefix, btn) {
+  document.getElementById(prefix+'-mo').value = '';
+  document.getElementById(prefix+'-yr').value = '';
+  btn.closest('.chart-filter-row').querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _applyFilter(prefix, 0);
 }
 
 // ── CORE FILTER RESOLVER ──────────────────────────────────────────────────

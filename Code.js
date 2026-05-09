@@ -436,47 +436,69 @@ function getDashboardData() {
   const currentMonth = Utilities.formatDate(now, 'Asia/Kolkata', 'yyyy-MM');
 
   const lastRow = sh.getLastRow();
-  let totalExpense = 0, totalIncome = 0, totalCashback = 0, totalInvested = 0, totalLent = 0;
+  // current month stats
+  let totalIncome = 0, totalCashback = 0, totalInvested = 0, totalRecover = 0;
+  // all-time lend tracking
+  let totalLentAllTime = 0;
+  const recoveredIds = new Set();
   const categoryMap = {}, monthMap = {}, accountMap = {};
 
   if (lastRow >= 2) {
     const data = sh.getRange(2, 1, lastRow - 1, 13).getValues();
+
+    // First pass: collect all recovered lend IDs
+    data.forEach(r => {
+      if (r[2] === 'Recover' && r[3] === 'Lend Recovery' && r[10]) recoveredIds.add(String(r[10]));
+    });
+
     data.forEach(r => {
       const type = r[2], amount = parseFloat(r[4]) || 0;
       const cat = r[3], acc = r[5];
-      const cbAmt = parseFloat(r[9]) || 0;
 
       let month = r[11];
       try {
         const parsedDate = _parseDate(r[1]);
-        if (parsedDate && parsedDate.getFullYear() > 1971) {
+        if (parsedDate && parsedDate.getFullYear() > 1971)
           month = Utilities.formatDate(parsedDate, 'Asia/Kolkata', 'yyyy-MM');
-        }
       } catch(e) {}
 
+      const isCurrentMonth = month === currentMonth;
+
+      // monthMap — all time for trend chart
       if (type === 'Expense') {
-        totalExpense += amount;
-        categoryMap[cat] = (categoryMap[cat] || 0) + (month === currentMonth ? amount : 0);
         monthMap[month] = monthMap[month] || { expense: 0, income: 0 };
         monthMap[month].expense += amount;
+      } else if (type === 'Income') {
+        monthMap[month] = monthMap[month] || { expense: 0, income: 0 };
+        monthMap[month].income += amount;
+      }
+
+      if (!isCurrentMonth) return;
+
+      // Current month only stats
+      if (type === 'Expense') {
+        categoryMap[cat] = (categoryMap[cat] || 0) + amount;
         accountMap[acc] = (accountMap[acc] || 0) + amount;
       } else if (type === 'Income') {
         totalIncome += amount;
-        monthMap[month] = monthMap[month] || { expense: 0, income: 0 };
-        monthMap[month].income += amount;
       } else if (type === 'Cashback') {
         totalCashback += amount;
       } else if (type === 'Investment') {
         totalInvested += amount;
-      } else if (type === 'Lend') {
-        totalLent += amount;
+      } else if (type === 'Recover') {
+        totalRecover += amount;
       }
-      if (cbAmt > 0) totalCashback += cbAmt;
+    });
+
+    // Outstanding lent = Lend txns not yet recovered
+    data.forEach(r => {
+      if (r[2] === 'Lend' && r[0] && !recoveredIds.has(String(r[0])))
+        totalLentAllTime += parseFloat(r[4]) || 0;
     });
   }
 
   const currentExpense = Object.values(categoryMap).reduce((a, b) => a + b, 0);
-  const netSpending = currentExpense - totalCashback;
+  const netSpending = currentExpense - totalRecover;
 
   return {
     budget, alertPct, currentMonth, currentExpense,
@@ -484,7 +506,7 @@ function getDashboardData() {
     remaining: budget - currentExpense,
     percentUsed: Math.round((currentExpense / budget) * 100),
     categoryMap, monthMap, accountMap,
-    totalIncome, totalExpense, totalInvested, totalLent
+    totalIncome, totalInvested, totalLent: totalLentAllTime
   };
 }
 
