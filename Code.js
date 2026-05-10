@@ -498,11 +498,10 @@ function getDashboardData() {
   }
 
   const currentExpense = Object.values(categoryMap).reduce((a, b) => a + b, 0);
-  const netSpending = currentExpense - totalRecover;
 
   return {
     budget, alertPct, currentMonth, currentExpense,
-    totalCashback, netSpending,
+    totalCashback,
     remaining: budget - currentExpense,
     percentUsed: Math.round((currentExpense / budget) * 100),
     categoryMap, monthMap, accountMap,

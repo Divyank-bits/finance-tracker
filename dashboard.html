@@ -31,7 +31,7 @@ function renderDashboard(d) {
       <div class="stat-grid">
         <div class="stat-card"><div class="stat-icon-wrap green">💰</div><div class="stat-val green">₹${(d.totalIncome||0).toLocaleString('en-IN')}</div><div class="stat-label">Total Income</div></div>
         <div class="stat-card"><div class="stat-icon-wrap yellow">🎁</div><div class="stat-val yellow">₹${(d.totalCashback||0).toLocaleString('en-IN')}</div><div class="stat-label">Cashback Saved</div></div>
-        <div class="stat-card"><div class="stat-icon-wrap accent">📊</div><div class="stat-val accent">₹${(d.netSpending||0).toLocaleString('en-IN')}</div><div class="stat-label">Net Spending</div></div>
+        <div class="stat-card"><div class="stat-icon-wrap teal">💚</div><div class="stat-val teal">₹${((d.totalIncome||0)-(d.currentExpense||0)).toLocaleString('en-IN')}</div><div class="stat-label">Savings</div></div>
         <div class="stat-card"><div class="stat-icon-wrap ${remaining>=0?'green':'red'}">${remaining>=0?'💚':'⚠️'}</div><div class="stat-val ${remaining>=0?'green':'red'}">₹${Math.abs(remaining).toLocaleString('en-IN')}</div><div class="stat-label">${remaining>=0?'Remaining':'Over Budget'}</div></div>
         <div class="stat-card"><div class="stat-icon-wrap teal">💹</div><div class="stat-val teal">₹${(d.totalInvested||0).toLocaleString('en-IN')}</div><div class="stat-label">Total Invested</div></div>
         <div class="stat-card"><div class="stat-icon-wrap accent">🤝</div><div class="stat-val accent">₹${(d.totalLent||0).toLocaleString('en-IN')}</div><div class="stat-label">Money Lent</div></div>

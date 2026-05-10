@@ -77,17 +77,13 @@ function renderCharts(d, inv) {
   window._chartsData = d;
   window._invData = inv;
 
-  // Default all charts to current month
-  const now = new Date();
-  const curMo = String(now.getMonth()+1).padStart(2,'0');
-  const curYr = String(now.getFullYear());
+  // Default all charts to 1M (current month), click the button so it shows active
   setTimeout(() => {
     ['cat','trend','inv','acc'].forEach(prefix => {
-      const moEl = document.getElementById(prefix+'-mo');
-      const yrEl = document.getElementById(prefix+'-yr');
-      if (moEl) moEl.value = curMo;
-      if (yrEl) yrEl.value = curYr;
-      _applyFilter(prefix);
+      const row = document.getElementById(prefix+'-mo')?.closest('.chart-filter-row');
+      if (!row) return;
+      const btn = [...row.querySelectorAll('.chart-filter-btn')].find(b => b.textContent === '1M');
+      if (btn) btn.click();
     });
   }, 150);
 }
