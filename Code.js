@@ -328,7 +328,6 @@ function addTransaction(data) {
     ];
 
     sh.appendRow(row);
-    _updateSummaries(ss, data, month);
     return { success: true, id };
   } catch (e) {
     return { success: false, error: e.message };
