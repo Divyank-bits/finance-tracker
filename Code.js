@@ -423,6 +423,21 @@ function getTransactionsByMonth(month) {
   return result;
 }
 
+function deleteTransaction(id) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) throw new Error('Transaction not found');
+  const ids = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(id)) {
+      sh.deleteRow(i + 2);
+      return true;
+    }
+  }
+  throw new Error('Transaction not found');
+}
+
 function getDashboardData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
