@@ -162,13 +162,12 @@ body.is-desktop .tx-month-selects { flex:0 0 auto; overflow-x:visible; }
 .tx-desc { font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tx-meta { font-size:11px; color:var(--muted); margin-top:2px; font-family:var(--mono); }
 .tx-right { text-align:right; flex-shrink:0; }
-.tx-menu-wrap { position:relative; flex-shrink:0; }
-.tx-menu-btn { background:none; border:none; font-size:18px; line-height:1; padding:6px 4px; margin-left:2px; cursor:pointer; opacity:0.55; border-radius:8px; color:var(--text); }
+.tx-menu-btn { flex-shrink:0; background:none; border:none; font-size:18px; line-height:1; padding:6px 4px; margin-left:2px; cursor:pointer; opacity:0.55; border-radius:8px; color:var(--text); }
 .tx-menu-btn:hover, .tx-menu-btn:active { opacity:1; background:var(--surface2); }
-.tx-menu-dropdown { display:none; position:absolute; right:0; top:100%; margin-top:4px; background:var(--surface); border-radius:var(--radius-sm,10px); box-shadow:var(--shadow-md,0 8px 24px rgba(0,0,0,0.18)); overflow:hidden; z-index:20; min-width:120px; }
-.tx-menu-wrap.open .tx-menu-dropdown { display:block; }
-.tx-menu-dropdown button { display:flex; align-items:center; gap:8px; width:100%; padding:10px 14px; border:none; background:none; font-size:13px; font-weight:600; color:var(--text); text-align:left; cursor:pointer; }
-.tx-menu-dropdown button:hover { background:var(--surface2); }
+.tx-action-menu { display:none; position:fixed; background:var(--surface); border-radius:var(--radius-sm,10px); box-shadow:var(--shadow-md,0 8px 24px rgba(0,0,0,0.25)); overflow:hidden; z-index:2000; min-width:120px; }
+.tx-action-menu.open { display:block; }
+.tx-action-menu button { display:flex; align-items:center; gap:8px; width:100%; padding:10px 14px; border:none; background:none; font-size:13px; font-weight:600; color:var(--text); text-align:left; cursor:pointer; }
+.tx-action-menu button:hover { background:var(--surface2); }
 
 .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center; padding:16px; }
 .modal-overlay.open { display:flex; }

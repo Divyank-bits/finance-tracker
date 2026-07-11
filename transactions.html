@@ -152,22 +152,48 @@ function renderTransactions(txs) {
                : tx.type==='Transfer'   ? '↔'
                : tx.type==='Lend'       ? '→'
                : '−';
-      html += `<div class="tx-item"><div class="tx-icon-wrap ${tc}">${icon}</div><div class="tx-info"><div class="tx-desc">${tx.description||tx.category}</div><div class="tx-meta">${friendlyDate(tx.date)} · ${tx.account||''}</div></div><div class="tx-right"><div class="tx-amount ${ac}">${as}₹${parseFloat(tx.amount).toLocaleString('en-IN')}</div><div class="tx-account">${tx.category||''}</div></div><div class="tx-menu-wrap"><button class="tx-menu-btn" onclick="event.stopPropagation();toggleTxMenu(this)">⋮</button><div class="tx-menu-dropdown"><button onclick="event.stopPropagation();closeTxMenus();editTx('${tx.id}')">✏️ Edit</button><button onclick="event.stopPropagation();closeTxMenus();deleteTx('${tx.id}')">🗑️ Delete</button></div></div></div>`;
+      html += `<div class="tx-item"><div class="tx-icon-wrap ${tc}">${icon}</div><div class="tx-info"><div class="tx-desc">${tx.description||tx.category}</div><div class="tx-meta">${friendlyDate(tx.date)} · ${tx.account||''}</div></div><div class="tx-right"><div class="tx-amount ${ac}">${as}₹${parseFloat(tx.amount).toLocaleString('en-IN')}</div><div class="tx-account">${tx.category||''}</div></div><button class="tx-menu-btn" onclick="event.stopPropagation();toggleTxMenu(this,'${tx.id}')">⋮</button></div>`;
     });
     html += '</div>';
   });
   document.getElementById('tx-list-content').innerHTML = html;
 }
 
-function toggleTxMenu(btn) {
-  const wrap = btn.closest('.tx-menu-wrap');
-  const isOpen = wrap.classList.contains('open');
+let _menuTxId = null;
+
+function toggleTxMenu(btn, id) {
+  const menu = document.getElementById('tx-action-menu');
+  const wasOpenForThis = menu.classList.contains('open') && _menuTxId === id;
   closeTxMenus();
-  if (!isOpen) wrap.classList.add('open');
+  if (wasOpenForThis) return;
+
+  _menuTxId = id;
+  const rect = btn.getBoundingClientRect();
+  menu.classList.add('open');
+  const menuWidth = menu.offsetWidth;
+  let left = rect.right - menuWidth;
+  left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+  let top = rect.bottom + 4;
+  if (top + menu.offsetHeight > window.innerHeight - 8) top = rect.top - menu.offsetHeight - 4;
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
 }
 
 function closeTxMenus() {
-  document.querySelectorAll('.tx-menu-wrap.open').forEach(w => w.classList.remove('open'));
+  document.getElementById('tx-action-menu')?.classList.remove('open');
+  _menuTxId = null;
+}
+
+function _menuEditTx() {
+  const id = _menuTxId;
+  closeTxMenus();
+  if (id) editTx(id);
+}
+
+function _menuDeleteTx() {
+  const id = _menuTxId;
+  closeTxMenus();
+  if (id) deleteTx(id);
 }
 
 document.addEventListener('click', closeTxMenus);
