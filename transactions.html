@@ -142,7 +142,7 @@ function renderTransactions(txs) {
                : tx.type==='Transfer'   ? '↔'
                : tx.type==='Lend'       ? '→'
                : '−';
-      html += `<div class="tx-item"><div class="tx-icon-wrap ${tc}">${icon}</div><div class="tx-info"><div class="tx-desc">${tx.description||tx.category}</div><div class="tx-meta">${friendlyDate(tx.date)} · ${tx.account||''}</div></div><div class="tx-right"><div class="tx-amount ${ac}">${as}₹${parseFloat(tx.amount).toLocaleString('en-IN')}</div><div class="tx-account">${tx.category||''}</div></div><button class="tx-delete-btn" onclick="event.stopPropagation();deleteTx('${tx.id}')" title="Delete">🗑️</button></div>`;
+      html += `<div class="tx-item"><div class="tx-icon-wrap ${tc}">${icon}</div><div class="tx-info"><div class="tx-desc">${tx.description||tx.category}</div><div class="tx-meta">${friendlyDate(tx.date)} · ${tx.account||''}</div></div><div class="tx-right"><div class="tx-amount ${ac}">${as}₹${parseFloat(tx.amount).toLocaleString('en-IN')}</div><div class="tx-account">${tx.category||''}</div></div><button class="tx-edit-btn" onclick="event.stopPropagation();editTx('${tx.id}')" title="Edit">✏️</button><button class="tx-delete-btn" onclick="event.stopPropagation();deleteTx('${tx.id}')" title="Delete">🗑️</button></div>`;
     });
     html += '</div>';
   });
@@ -159,5 +159,76 @@ function deleteTx(id) {
     })
     .withFailureHandler(err => showToast(err.message || 'Failed to delete', true))
     .deleteTransaction(id);
+}
+
+let _editingTxId = null;
+
+function editTx(id) {
+  const tx = allTxs.find(t => String(t.id) === String(id));
+  if (!tx) return;
+  _editingTxId = id;
+
+  const accSel = document.getElementById('e-account');
+  accSel.innerHTML = (config.accounts || []).map(a => `<option value="${a}">${a}</option>`).join('');
+
+  document.getElementById('e-date').value = tx.date || '';
+  document.getElementById('e-type').value = tx.type || 'Expense';
+  document.getElementById('e-amount').value = tx.amount || '';
+  document.getElementById('e-desc').value = tx.description || '';
+  document.getElementById('e-notes').value = tx.notes || '';
+  accSel.value = tx.account || '';
+
+  _fillEditCategories(tx.type);
+  document.getElementById('e-category').value = tx.category || '';
+
+  document.getElementById('e-type').onchange = () => _fillEditCategories(document.getElementById('e-type').value);
+
+  document.getElementById('edit-tx-modal').classList.add('open');
+}
+
+function _fillEditCategories(type) {
+  const catSel = document.getElementById('e-category');
+  const filtered = (config.categories || []).filter(c => (config.categoryTypeMap[c] || 'Expense') === type);
+  const toShow = filtered.length ? filtered : (config.categories || []);
+  catSel.innerHTML = toShow.map(c => `<option value="${c}">${_catIcon(c)} ${c}</option>`).join('');
+}
+
+function closeEditTx() {
+  document.getElementById('edit-tx-modal').classList.remove('open');
+  _editingTxId = null;
+}
+
+function saveEditTx() {
+  const amount = parseFloat(document.getElementById('e-amount').value);
+  if (!amount || amount <= 0) { showToast('Enter a valid amount', true); return; }
+  const btn = document.getElementById('edit-save-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const data = {
+    date: document.getElementById('e-date').value,
+    type: document.getElementById('e-type').value,
+    category: document.getElementById('e-category').value,
+    amount,
+    account: document.getElementById('e-account').value,
+    description: document.getElementById('e-desc').value,
+    notes: document.getElementById('e-notes').value
+  };
+
+  google.script.run
+    .withSuccessHandler(res => {
+      btn.disabled = false; btn.textContent = 'Save Changes';
+      if (res.success) {
+        const idx = allTxs.findIndex(t => String(t.id) === String(_editingTxId));
+        if (idx > -1) allTxs[idx] = Object.assign({}, allTxs[idx], data);
+        applyTxFilters();
+        closeEditTx();
+        showToast('Transaction updated');
+      } else showToast('Error: ' + res.error, true);
+    })
+    .withFailureHandler(err => {
+      btn.disabled = false; btn.textContent = 'Save Changes';
+      showToast('Failed: ' + (err?.message || ''), true);
+    })
+    .updateTransaction(_editingTxId, data);
 }
 </script>

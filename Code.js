@@ -423,6 +423,36 @@ function getTransactionsByMonth(month) {
   return result;
 }
 
+function updateTransaction(id, data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);
+    const lastRow = sh.getLastRow();
+    if (lastRow < 2) throw new Error('Transaction not found');
+    const ids = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+    let rowIndex = -1;
+    for (let i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]) === String(id)) { rowIndex = i + 2; break; }
+    }
+    if (rowIndex === -1) throw new Error('Transaction not found');
+
+    const parsedDate = _parseDate(data.date);
+    const normalizedDate = Utilities.formatDate(parsedDate, 'Asia/Kolkata', 'yyyy-MM-dd');
+    const month = Utilities.formatDate(parsedDate, 'Asia/Kolkata', 'yyyy-MM');
+
+    sh.getRange(rowIndex, 2, 1, 6).setValues([[
+      normalizedDate, data.type, data.category,
+      parseFloat(data.amount), data.account, data.description || ''
+    ]]);
+    sh.getRange(rowIndex, 8, 1, 1).setValue(data.notes || '');
+    sh.getRange(rowIndex, 12, 1, 1).setValue(month);
+
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 function deleteTransaction(id) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(SHEETS.TRANSACTIONS);

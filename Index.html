@@ -261,6 +261,35 @@
   </button>
 </nav>
 
+<div class="modal-overlay" id="edit-tx-modal">
+  <div class="modal-card">
+    <div class="modal-title">Edit Transaction</div>
+    <div class="form-row">
+      <div><label class="form-label">Date</label><input class="form-input" id="e-date" type="date"/></div>
+      <div><label class="form-label">Account</label><select class="form-select" id="e-account"></select></div>
+    </div>
+    <div><label class="form-label">Type</label>
+      <select class="form-select" id="e-type">
+        <option value="Expense">💸 Expense</option>
+        <option value="Income">💰 Income</option>
+        <option value="Transfer">🔄 Transfer</option>
+        <option value="Cashback">🎁 Cashback</option>
+        <option value="Investment">💹 Investment</option>
+        <option value="Lend">🤝 Lend</option>
+        <option value="Recover">↩️ Recover</option>
+      </select>
+    </div>
+    <div><label class="form-label">Category</label><select class="form-select" id="e-category"></select></div>
+    <div><label class="form-label">Amount</label><input class="form-input" id="e-amount" type="number" inputmode="decimal"/></div>
+    <div><label class="form-label">Description</label><input class="form-input" id="e-desc" type="text"/></div>
+    <div><label class="form-label">Notes</label><input class="form-input" id="e-notes" type="text"/></div>
+    <div class="modal-actions">
+      <button class="modal-cancel-btn" onclick="closeEditTx()">Cancel</button>
+      <button class="submit-btn" id="edit-save-btn" onclick="saveEditTx()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <?!= include('Scripts'); ?>
