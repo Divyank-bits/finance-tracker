@@ -18,6 +18,14 @@ function _initTxSelects() {
   for (let y = curYear; y >= 2022; y--) {
     yearSel.innerHTML += `<option value="${y}" ${y === curYear ? 'selected' : ''}>${y}</option>`;
   }
+
+  const accSel = document.getElementById('tx-account-sel');
+  if (accSel) {
+    const prevValue = accSel.value;
+    accSel.innerHTML = `<option value="">All Accounts</option>` +
+      (config.accounts || []).map(a => `<option value="${a}">${a}</option>`).join('');
+    accSel.value = prevValue;
+  }
 }
 
 function onTxMonthChange() {
@@ -61,7 +69,9 @@ function filterTx(type, btn) {
 
 function applyTxFilters() {
   const q = (document.getElementById('tx-search')?.value || '').toLowerCase().trim();
+  const account = document.getElementById('tx-account-sel')?.value || '';
   let txs = currentFilter === 'All' ? allTxs : allTxs.filter(t => t.type === currentFilter);
+  if (account) txs = txs.filter(t => t.account === account);
   if (q) txs = txs.filter(t =>
     (t.description||'').toLowerCase().includes(q) ||
     (t.category||'').toLowerCase().includes(q) ||
