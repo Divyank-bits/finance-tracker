@@ -236,6 +236,7 @@ function editTx(id) {
 }
 
 function _fillEditCategories(type) {
+  document.getElementById('e-category-group').style.display = type === 'Transfer' ? 'none' : 'block';
   const catSel = document.getElementById('e-category');
   const filtered = (config.categories || []).filter(c => (config.categoryTypeMap[c] || 'Expense') === type);
   const toShow = filtered.length ? filtered : (config.categories || []);
@@ -253,10 +254,11 @@ function saveEditTx() {
   const btn = document.getElementById('edit-save-btn');
   btn.disabled = true; btn.textContent = 'Saving…';
 
+  const type = document.getElementById('e-type').value;
   const data = {
     date: document.getElementById('e-date').value,
-    type: document.getElementById('e-type').value,
-    category: document.getElementById('e-category').value,
+    type,
+    category: type === 'Transfer' ? '' : document.getElementById('e-category').value,
     amount,
     account: document.getElementById('e-account').value,
     description: document.getElementById('e-desc').value,
