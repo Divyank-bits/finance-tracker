@@ -133,7 +133,7 @@ function renderTransactions(txs) {
   });
   let html = '';
   sortedGroups.forEach(([dateKey,items]) => {
-    html += `<div class="tx-date-divider">${dateKey}</div><div class="tx-list" style="box-shadow:var(--shadow-sm);border-radius:var(--radius-lg);margin-bottom:12px;overflow:hidden;">`;
+    html += `<div class="tx-date-divider">${dateKey}</div><div class="tx-list" style="box-shadow:var(--shadow-sm);border-radius:var(--radius-lg);margin-bottom:12px;">`;
     items.forEach(tx => {
       const icon = tx.type==='Income'     ? '💰'
                  : tx.type==='Transfer'   ? '🔄'
@@ -152,12 +152,25 @@ function renderTransactions(txs) {
                : tx.type==='Transfer'   ? '↔'
                : tx.type==='Lend'       ? '→'
                : '−';
-      html += `<div class="tx-item"><div class="tx-icon-wrap ${tc}">${icon}</div><div class="tx-info"><div class="tx-desc">${tx.description||tx.category}</div><div class="tx-meta">${friendlyDate(tx.date)} · ${tx.account||''}</div></div><div class="tx-right"><div class="tx-amount ${ac}">${as}₹${parseFloat(tx.amount).toLocaleString('en-IN')}</div><div class="tx-account">${tx.category||''}</div></div><button class="tx-edit-btn" onclick="event.stopPropagation();editTx('${tx.id}')" title="Edit">✏️</button><button class="tx-delete-btn" onclick="event.stopPropagation();deleteTx('${tx.id}')" title="Delete">🗑️</button></div>`;
+      html += `<div class="tx-item"><div class="tx-icon-wrap ${tc}">${icon}</div><div class="tx-info"><div class="tx-desc">${tx.description||tx.category}</div><div class="tx-meta">${friendlyDate(tx.date)} · ${tx.account||''}</div></div><div class="tx-right"><div class="tx-amount ${ac}">${as}₹${parseFloat(tx.amount).toLocaleString('en-IN')}</div><div class="tx-account">${tx.category||''}</div></div><div class="tx-menu-wrap"><button class="tx-menu-btn" onclick="event.stopPropagation();toggleTxMenu(this)">⋮</button><div class="tx-menu-dropdown"><button onclick="event.stopPropagation();closeTxMenus();editTx('${tx.id}')">✏️ Edit</button><button onclick="event.stopPropagation();closeTxMenus();deleteTx('${tx.id}')">🗑️ Delete</button></div></div></div>`;
     });
     html += '</div>';
   });
   document.getElementById('tx-list-content').innerHTML = html;
 }
+
+function toggleTxMenu(btn) {
+  const wrap = btn.closest('.tx-menu-wrap');
+  const isOpen = wrap.classList.contains('open');
+  closeTxMenus();
+  if (!isOpen) wrap.classList.add('open');
+}
+
+function closeTxMenus() {
+  document.querySelectorAll('.tx-menu-wrap.open').forEach(w => w.classList.remove('open'));
+}
+
+document.addEventListener('click', closeTxMenus);
 
 function deleteTx(id) {
   if (!confirm('Delete this transaction? This cannot be undone.')) return;

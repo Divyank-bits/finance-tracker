@@ -110,11 +110,13 @@ function handleDrop(e) {
   reader.readAsText(file);
 }
 
+const IMPORT_TYPES = ['Expense','Income','Transfer','Cashback','Investment','Lend','Recover'];
+
 function renderPreview(data) {
   window._previewData = data;
   const cats = config.categories || [];
   const rows = data.map((tx,i) =>
-    `<tr><td><input type="checkbox" class="tx-check" data-i="${i}" checked></td><td class="mono" style="font-size:11px">${tx.date}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${tx.description}</td><td class="mono">₹${parseFloat(tx.amount).toLocaleString('en-IN')}</td><td style="font-size:12px">${tx.type}</td><td><select class="cat-select" onchange="previewData[${i}].category=this.value">${cats.map(c=>`<option value="${c}" ${c===tx.category?'selected':''}>${c}</option>`).join('')}</select></td></tr>`
+    `<tr><td><input type="checkbox" class="tx-check" data-i="${i}" checked></td><td class="mono" style="font-size:11px">${tx.date}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${tx.description}</td><td class="mono">₹${parseFloat(tx.amount).toLocaleString('en-IN')}</td><td><select class="cat-select" onchange="previewData[${i}].type=this.value">${IMPORT_TYPES.map(t=>`<option value="${t}" ${t===tx.type?'selected':''}>${t}</option>`).join('')}</select></td><td><select class="cat-select" onchange="previewData[${i}].category=this.value">${cats.map(c=>`<option value="${c}" ${c===tx.category?'selected':''}>${c}</option>`).join('')}</select></td></tr>`
   ).join('');
   document.getElementById('preview-body').innerHTML = rows;
   const checked = data.length;
