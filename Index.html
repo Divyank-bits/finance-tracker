@@ -130,6 +130,7 @@
         <button class="source-btn" onclick="selectSource('sapphiro_pdf',this)">💳 Sapphiro PDF</button>
         <button class="source-btn" onclick="selectSource('amazon_icici_pdf',this)">💳 Amazon ICICI PDF</button>
         <button class="source-btn" onclick="selectSource('amazon_pay_pdf',this)">🛒 Amazon Pay PDF</button>
+        <button class="source-btn" onclick="selectSource('sbi_bank_pdf',this)">🏦 SBI Bank PDF</button>
       </div>
       <div class="source-group-label">XLS / CSV</div>
       <div class="source-grid">
@@ -143,8 +144,8 @@
         <button class="source-btn" onclick="selectSource('bhim_upilite',this)">💳 BHIM (UPI Lite)</button>
       </div>
       <div id="pdf-password-wrap" style="display:none;margin-bottom:12px;">
-        <label class="form-label">PDF Password</label>
-        <input class="form-input" id="pdf-password" type="password" placeholder="Enter PDF password (if locked)"/>
+        <label class="form-label">File Password</label>
+        <input class="form-input" id="pdf-password" type="password" placeholder="Enter file password (if locked)"/>
       </div>
       <div class="drop-zone" id="drop-zone"
            onclick="document.getElementById('csv-input').click()"

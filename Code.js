@@ -13,7 +13,8 @@ const SHEETS = {
   BUDGET: 'Budget Settings',
   KEYWORD_MAP: 'Keyword Mapping',
   CATEGORIES: 'Categories',
-  LENDING: 'Lending Tracker'
+  LENDING: 'Lending Tracker',
+  ACCOUNTS: 'Accounts'
 };
 
 const ACCOUNTS = [
@@ -152,6 +153,7 @@ function setupSpreadsheet() {
   _setupKeywordMap(ss);
   _setupCategories(ss);
   _setupLending(ss);
+  _setupAccounts(ss);
   Logger.log('✅ All sheets created successfully! Your Finance Tracker is ready.');
 }
 
@@ -798,7 +800,39 @@ function getConfig() {
     CATEGORIES.forEach(c => { categoryTypeMap[c] = _getCategoryType(c); });
   }
 
-  return { accounts: ACCOUNTS, categories, types: TRANSACTION_TYPES, categoryTypeMap, categoryIconMap };
+  const accounts = _getAccounts(ss);
+  const budgetSh = ss.getSheetByName(SHEETS.BUDGET);
+  const budget = budgetSh ? budgetSh.getRange(1, 2).getValue() : BUDGET_MONTHLY;
+
+  return { accounts, categories, types: TRANSACTION_TYPES, categoryTypeMap, categoryIconMap, budget };
+}
+
+function _getAccounts(ss) {
+  const sh = ss.getSheetByName(SHEETS.ACCOUNTS);
+  if (sh && sh.getLastRow() > 1) {
+    return sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues()
+      .map(r => String(r[0]).trim())
+      .filter(Boolean);
+  }
+  return ACCOUNTS;
+}
+
+function addAccount(name) {
+  name = String(name || '').trim();
+  if (!name) throw new Error('Account name is required');
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEETS.ACCOUNTS);
+  if (!sh) _setupAccounts(ss);
+  sh = ss.getSheetByName(SHEETS.ACCOUNTS);
+
+  const existing = _getAccounts(ss);
+  if (existing.some(a => a.toLowerCase() === name.toLowerCase())) {
+    return getConfig();
+  }
+
+  sh.getRange(sh.getLastRow() + 1, 1).setValue(name);
+  return getConfig();
 }
 
 function getBudgetSettings() {
@@ -914,6 +948,22 @@ function importXLS(base64Data, source) {
     return { success: true, preview: parsed };
   } catch(e) {
     Logger.log('importXLS error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+function importXLSRows(rows, source) {
+  try {
+    if (!rows || rows.length < 2) return { success: false, error: 'No data found in file' };
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const kwSh = ss.getSheetByName(SHEETS.KEYWORD_MAP);
+    const kwData = kwSh.getLastRow() > 1 ? kwSh.getRange(2, 1, kwSh.getLastRow() - 1, 3).getValues() : [];
+    const parsed = _parseBySource(rows, source, kwData);
+    Logger.log('Parsed ' + parsed.length + ' transactions (password-protected xls)');
+    return { success: true, preview: parsed };
+  } catch(e) {
+    Logger.log('importXLSRows error: ' + e.message);
     return { success: false, error: e.message };
   }
 }
@@ -1090,6 +1140,15 @@ function _setupCategories(ss) {
   sh.getRange(2, 1, catData.length, 4).setValues(catData);
 }
 
+
+function _setupAccounts(ss) {
+  let sh = ss.getSheetByName(SHEETS.ACCOUNTS) || ss.insertSheet(SHEETS.ACCOUNTS);
+  sh.clearContents();
+  const headers = ['Account Name'];
+  sh.getRange(1, 1, 1, 1).setValues([headers]).setFontWeight('bold').setBackground('#1a73e8').setFontColor('#ffffff');
+  sh.setFrozenRows(1);
+  sh.getRange(2, 1, ACCOUNTS.length, 1).setValues(ACCOUNTS.map(a => [a]));
+}
 
 function _getCategoryType(cat) {
   const investCats = ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment'];

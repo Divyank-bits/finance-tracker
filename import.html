@@ -6,7 +6,7 @@ function selectSource(src, btn) {
   document.querySelectorAll('.source-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   document.getElementById('pdf-password-wrap').style.display =
-    src.endsWith('_pdf') ? 'block' : 'none';
+    (src.endsWith('_pdf') || src === 'sbi_bank') ? 'block' : 'none';
 }
 
 function handleFile(input) {
@@ -48,6 +48,7 @@ function handleFile(input) {
         else if (currentSource === 'sapphiro_pdf')     parsed = _parseICICICCPDF(fullText, 'Sapphiro (ICICI)');
         else if (currentSource === 'amazon_icici_pdf') parsed = _parseICICICCPDF(fullText, 'Amazon (ICICI)');
         else if (currentSource === 'amazon_pay_pdf')   parsed = _parseAmazonPayPDF(fullText);
+        else if (currentSource === 'sbi_bank_pdf')     parsed = _parseSBIBankPDF(fullText);
 
         if (!parsed.length) { showToast('No transactions found. Check password or format.', true); return; }
         previewData = parsed;
@@ -75,14 +76,37 @@ function handleFile(input) {
     reader.readAsText(file);
   } else if (isXLS) {
     const backendSource = currentSource === 'sbi_bank' ? 'sbi' : currentSource;
-    reader.onload = e => {
-      showToast('Converting XLS… ~15s');
-      google.script.run
-        .withSuccessHandler(res => { if(!res?.success){showToast('Error: '+(res?.error||''),true);return;} if(!res.preview?.length){showToast('No transactions found',true);return;} previewData=res.preview; renderPreview(previewData); showToast('Found '+previewData.length+' transactions!'); })
-        .withFailureHandler(err => showToast('Failed: '+(err?.message||''),true))
-        .importXLS(e.target.result.split(',')[1], backendSource);
-    };
-    reader.readAsDataURL(file);
+    const password = (document.getElementById('pdf-password').value || '').trim();
+
+    if (password) {
+      // Password-protected workbook — decrypt client-side with SheetJS, then send parsed rows (no re-upload of the encrypted file).
+      reader.onload = e => {
+        showToast('Unlocking file…');
+        try {
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, { type: 'array', password: password });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+          if (!rows || rows.length < 2) { showToast('No data found in file', true); return; }
+          google.script.run
+            .withSuccessHandler(res => { if(!res?.success){showToast('Error: '+(res?.error||''),true);return;} if(!res.preview?.length){showToast('No transactions found',true);return;} previewData=res.preview; renderPreview(previewData); showToast('Found '+previewData.length+' transactions!'); })
+            .withFailureHandler(err => showToast('Failed: '+(err?.message||''),true))
+            .importXLSRows(rows, backendSource);
+        } catch (err) {
+          showToast(/password/i.test(err.message) ? 'Wrong password!' : 'File error: ' + err.message, true);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.onload = e => {
+        showToast('Converting XLS… ~15s');
+        google.script.run
+          .withSuccessHandler(res => { if(!res?.success){showToast('Error: '+(res?.error||''),true);return;} if(!res.preview?.length){showToast('No transactions found',true);return;} previewData=res.preview; renderPreview(previewData); showToast('Found '+previewData.length+' transactions!'); })
+          .withFailureHandler(err => showToast('Failed: '+(err?.message||''),true))
+          .importXLS(e.target.result.split(',')[1], backendSource);
+      };
+      reader.readAsDataURL(file);
+    }
   } else {
     const backendSource = currentSource === 'sbi_bank' ? 'sbi' : currentSource;
     reader.onload = e => {
@@ -289,6 +313,63 @@ function _parseHDFCBankPDF(text) {
       account: 'HDFC Bank',
       category: _autoCategory(narration),
       notes: 'PDF Import'
+    });
+  });
+  return results;
+}
+
+// ── SBI BANK PDF ───────────────────────────────────────────────────────────
+function _parseSBIBankPDF(text) {
+  const results = [];
+  const normalized = text.replace(/\r/g, '').replace(/[ \t]+/g, ' ');
+
+  // Rows start with "Value Date Post Date" — same DD/MM/YYYY repeated back to back.
+  const rowPattern = /\b(\d{2}\/\d{2}\/\d{4})\s+\d{2}\/\d{2}\/\d{4}\b/g;
+  const rowMatches = [...normalized.matchAll(rowPattern)];
+
+  rowMatches.forEach((match, idx) => {
+    const date = match[1];
+    const start = match.index + match[0].length;
+    const end = idx + 1 < rowMatches.length ? rowMatches[idx+1].index : normalized.length;
+    const block = normalized.substring(start, end).trim();
+    if (!block) return;
+
+    // Trailing numbers in the row are: [Debit] [Credit] Balance — one of Debit/Credit is blank ("-" or absent).
+    const amtPattern = /([\d,]+\.\d{2})/g;
+    const amtMatches = [...block.matchAll(amtPattern)];
+    if (amtMatches.length < 1) return;
+
+    const balance = parseFloat(amtMatches[amtMatches.length - 1][0].replace(/,/g, ''));
+    const txAmtMatches = amtMatches.slice(0, -1);
+    if (!txAmtMatches.length) return;
+
+    // Whichever of Debit/Credit is present appears once; if both columns had values there'd be two before Balance.
+    const txAmt = parseFloat(txAmtMatches[txAmtMatches.length - 1][0].replace(/,/g, ''));
+    if (!txAmt || txAmt <= 0) return;
+
+    const isCredit = /credit|deposit|CR\b/i.test(block.substring(0, amtMatches[amtMatches.length - 1].index))
+      && !/debit|withdrawal/i.test(block);
+
+    // Description = text before the first amount, minus the trailing Ref No/Cheque No token.
+    const descEnd = txAmtMatches[0].index;
+    let description = block.substring(0, descEnd).replace(/\s+/g, ' ').trim();
+    description = description.replace(/\s*-\s*$/, '').trim();
+    if (!description || description.length < 3) return;
+    if (/statement of account|value date|post date|details|ref no|balance|opening|closing/i.test(description) && description.length < 40) return;
+
+    const cat = _autoCategory(description);
+    const INVEST_CATS = ['Mutual Fund','Stocks & Zerodha','Fixed Deposit','Plot & Property','PPF & NPS','Other Investment'];
+    let type;
+    if (isCredit) {
+      type = /salary/i.test(description) ? 'Income' : 'Income';
+    } else {
+      type = INVEST_CATS.includes(cat) ? 'Investment' : 'Expense';
+    }
+
+    results.push({
+      date, description, amount: txAmt, type,
+      account: 'SBI', category: cat,
+      notes: 'PDF Import · Bal: ' + balance
     });
   });
   return results;
